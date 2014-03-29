@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+for i in `schroot -l`; do
+    case "$i" in
+    source:centos*)
+        echo ""
+        echo "$i -- yum"
+        echo "-------------------------------------------"
+        schroot -c "$i" -- yum update
+        echo "-------------------------------------------"
+        ;;
+    source:*)
+        echo ""
+        echo "$i -- apt-get"
+        echo "-------------------------------------------"
+        schroot -c "$i" -- apt-get update
+        schroot -c "$i" -- apt-get --yes dist-upgrade
+        schroot -c "$i" -- apt-get autoremove --purge
+        schroot -c "$i" -- apt-get clean
+        schroot -c "$i" -- apt-get install --yes eatmydata
+        echo "-------------------------------------------"
+        ;;
+    esac
+done
