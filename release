@@ -166,11 +166,11 @@ def lint(changes_file):
         chroot.call([
             "apt-get", "--yes",
             "install", "lintian"], user="root")
-        chroot.call([
-            "apt-get", "--yes", "-t", "experimental",
-            "install", "lintian4python"], user="root")
+#        chroot.call([
+#            "apt-get", "--yes", "-t", "experimental",
+#            "install", "lintian4python"], user="root")
         chroot.call(["lintian", changes_file])
-        chroot.call(["lintian4py", changes_file])
+#        chroot.call(["lintian4py", changes_file])
 
 
 def upload_pypi(tmp_dir, dsc_path):
