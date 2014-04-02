@@ -222,7 +222,7 @@ def main():
 
     parser.add_argument(
         "--upload",
-        choices=['vpac', 'pypi'],
+        choices=['vpac', 'debian', 'pypi'],
         action="append",
         default=[],
         help="upload destinations")
@@ -239,6 +239,8 @@ def main():
         changes_file = build(tmp_dir, dsc_file, "unstable", None)
         sign(changes_file)
         lint(changes_file)
+        if 'debian' in args.upload:
+            call(["dput", "ftp-master", changes_file])
         if 'vpac' in args.upload:
             call(["dput", "vpac", changes_file])
 
