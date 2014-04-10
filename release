@@ -50,12 +50,7 @@ def setup_logging():
     root.addHandler(console)
 
 
-def call_result(cmd):
-    logger.debug(" ".join(cmd))
-    return subprocess.call(cmd)
-
-
-def call(cmd):
+def check_call(cmd):
     logger.debug(" ".join(cmd))
     return subprocess.check_call(cmd)
 
@@ -69,7 +64,7 @@ def build_src(src_dir):
     if os.path.isdir(os.path.join(src_dir, ".git")):
 
         with chdir(src_dir):
-            call([
+            check_call([
                 "git-buildpackage",
                 "--git-builder=debuild -i -I -S"])
 
@@ -79,7 +74,7 @@ def build_src(src_dir):
 
         with chdir(parent_dir):
 
-            call([
+            check_call([
                 "dpkg-source",
                 "-b", src_name])
 
@@ -108,7 +103,7 @@ def build(tmp_dir, dsc_path, distribution, add_to_version):
     os.chdir(tmp_dir)
 
     if add_to_version is not None:
-        call(["dpkg-source", "-x", dsc_file, build_dir])
+        check_call(["dpkg-source", "-x", dsc_file, build_dir])
 
         os.chdir(build_dir)
 
@@ -132,13 +127,13 @@ def build(tmp_dir, dsc_path, distribution, add_to_version):
         cl.write_to_open_file(open(changelog_file, "w"))
 
         os.chdir(tmp_dir)
-        call([
+        check_call([
             "dpkg-source",
             "-b", "build"])
 
         dsc_file = "%s_%s.dsc" % (cl.package, cl.version)
 
-    call([
+    check_call([
         "sbuild",
         "-d", distribution,
         "-sA", "--force-orig-source",
@@ -158,19 +153,19 @@ def build(tmp_dir, dsc_path, distribution, add_to_version):
 
 
 def sign(changes_file):
-    call(["debsign", changes_file])
+    check_call(["debsign", changes_file])
 
 
 def lint(changes_file):
     with schroot.schroot("sid") as chroot:
-        chroot.call([
+        chroot.check_call([
             "apt-get", "--yes",
             "install", "lintian"], user="root")
-#        chroot.call([
+#        chroot.check_call([
 #            "apt-get", "--yes", "-t", "experimental",
 #            "install", "lintian4python"], user="root")
-        chroot.call(["lintian", changes_file])
-#        chroot.call(["lintian4py", changes_file])
+        chroot.check_call(["lintian", changes_file])
+#        chroot.check_call(["lintian4py", changes_file])
 
 
 def test(changes_file, chroot):
@@ -183,18 +178,18 @@ def test(changes_file, chroot):
             debs.append(os.path.join(build_dir, f['name']))
 
     with schroot.schroot(chroot) as chroot:
-        chroot.call(["dpkg", "--unpack", "--"] + debs, user="root")
-        chroot.call(["apt-get", "--yes", "-f", "install"], user="root")
+        chroot.check_call(["dpkg", "--unpack", "--"] + debs, user="root")
+        chroot.check_call(["apt-get", "--yes", "-f", "install"], user="root")
 
 
 def upload_pypi(tmp_dir, dsc_path):
     build_dir = os.path.join(tmp_dir, "build")
 
     os.chdir(tmp_dir)
-    call(["dpkg-source", "-x", dsc_path, build_dir])
+    check_call(["dpkg-source", "-x", dsc_path, build_dir])
 
     os.chdir(build_dir)
-    call(["./setup.py", "sdist", "upload"])
+    check_call(["./setup.py", "sdist", "upload"])
 
 
 @contextmanager
@@ -255,22 +250,22 @@ def main():
         lint(changes_file)
         test(changes_file, "unstable")
         if 'debian' in args.upload:
-            call(["dput", "ftp-master", changes_file])
+            check_call(["dput", "ftp-master", changes_file])
         if 'vpac' in args.upload:
-            call(["dput", "vpac", changes_file])
+            check_call(["dput", "vpac", changes_file])
 
     if 'vpac' in args.upload:
         with temp_dir() as tmp_dir:
             changes_file = build(tmp_dir, dsc_file, "wheezy", "~bpo70+1")
             sign(changes_file)
             test(changes_file, "wheezy")
-            call(["dput", "vpac", changes_file])
+            check_call(["dput", "vpac", changes_file])
 
         with temp_dir() as tmp_dir:
             changes_file = build(tmp_dir, dsc_file, "squeeze", "~bpo60+1")
             sign(changes_file)
             test(changes_file, "squeeze")
-            call(["dput", "vpac", changes_file])
+            check_call(["dput", "vpac", changes_file])
 
     if 'pypi' in args.upload:
         with temp_dir() as tmp_dir:
