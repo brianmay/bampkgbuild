@@ -173,6 +173,20 @@ def lint(changes_file):
 #        chroot.call(["lintian4py", changes_file])
 
 
+def test(changes_file, chroot):
+    build_dir = os.path.dirname(changes_file)
+    d = deb822.Changes(open(changes_file))
+
+    debs = []
+    for f in d['files']:
+        if f['name'].endswith(".deb"):
+            debs.append(os.path.join(build_dir, f['name']))
+
+    with schroot.schroot(chroot) as chroot:
+        chroot.call(["dpkg", "--unpack", "--"] + debs, user="root")
+        chroot.call(["apt-get", "--yes", "-f", "install"], user="root")
+
+
 def upload_pypi(tmp_dir, dsc_path):
     build_dir = os.path.join(tmp_dir, "build")
 
@@ -239,6 +253,7 @@ def main():
         changes_file = build(tmp_dir, dsc_file, "unstable", None)
         sign(changes_file)
         lint(changes_file)
+        test(changes_file, "unstable")
         if 'debian' in args.upload:
             call(["dput", "ftp-master", changes_file])
         if 'vpac' in args.upload:
@@ -248,11 +263,13 @@ def main():
         with temp_dir() as tmp_dir:
             changes_file = build(tmp_dir, dsc_file, "wheezy", "~bpo70+1")
             sign(changes_file)
+            test(changes_file, "wheezy")
             call(["dput", "vpac", changes_file])
 
         with temp_dir() as tmp_dir:
             changes_file = build(tmp_dir, dsc_file, "squeeze", "~bpo60+1")
             sign(changes_file)
+            test(changes_file, "squeeze")
             call(["dput", "vpac", changes_file])
 
     if 'pypi' in args.upload:
