@@ -6,6 +6,7 @@ import tempfile
 import shutil
 import subprocess
 import schroot
+import re
 from email.Utils import formatdate
 from debian import deb822
 from debian import changelog
@@ -110,8 +111,17 @@ def build(tmp_dir, dsc_path, distribution, add_to_version):
         changelog_file = "debian/changelog"
         cl = changelog.Changelog(open(changelog_file))
         version = cl.get_version()
+        version = str(version)
 
-        version = str(version) + add_to_version
+        m = re.search("^(.*)~bpo\d\d\+(\d+)$", version)
+        if m is not None:
+            version = m.group(1)
+            offset = int(m.group(2))
+            offset = "+" + str(offset) + ".1"
+        else:
+            offset = "+1"
+
+        version = version + add_to_version + offset
 
         cl.new_block(
             package=cl.package,
@@ -168,7 +178,10 @@ def lint(changes_file):
 #        chroot.check_call(["lintian4py", changes_file])
 
 
-def test(changes_file, chroot):
+def test(changes_file, chroot, test_mode):
+    if test_mode == "none":
+        return
+
     build_dir = os.path.dirname(changes_file)
     d = deb822.Changes(open(changes_file))
 
@@ -181,12 +194,27 @@ def test(changes_file, chroot):
         chroot.check_call(["dpkg", "--unpack", "--"] + debs, user="root")
         chroot.check_call(["apt-get", "--yes", "-f", "install"], user="root")
 
+        if test_mode == "auto":
+            pass
+        elif test_mode == "manual":
+            chroot.check_call(["bash"], user="root")
+        else:
+            raise RuntimeError("Unknown test mode %s" % test_mode)
+
+
+def upload_debian(server, delayed, changes_file):
+    if delayed > 0:
+        check_call(["dput", "--delayed=%d" % delayed, server, changes_file])
+    else:
+        check_call(["dput", server, changes_file])
+
 
 def upload_pypi(tmp_dir, dsc_path):
+    dsc_file = os.path.abspath(dsc_path)
     build_dir = os.path.join(tmp_dir, "build")
 
     os.chdir(tmp_dir)
-    check_call(["dpkg-source", "-x", dsc_path, build_dir])
+    check_call(["dpkg-source", "-x", dsc_file, build_dir])
 
     os.chdir(build_dir)
     check_call(["./setup.py", "sdist", "upload"])
@@ -196,11 +224,11 @@ def upload_pypi(tmp_dir, dsc_path):
 def temp_dir():
     tmp_dir = tempfile.mkdtemp()
     cur_dir = os.getcwd()
-
-    yield tmp_dir
-
-    os.chdir(cur_dir)
-    shutil.rmtree(tmp_dir)
+    try:
+        yield tmp_dir
+    finally:
+        os.chdir(cur_dir)
+        shutil.rmtree(tmp_dir)
 
 
 @contextmanager
@@ -236,36 +264,68 @@ def main():
         default=[],
         help="upload destinations")
 
+    parser.add_argument(
+        "--distributions",
+        choices=['squeeze', 'wheezy', 'jessie', 'sid'],
+        action="append",
+        default=[],
+        help="build distributions")
+
+    parser.add_argument(
+        "--delayed",
+        choices=range(0, 15+1), default=0,
+        type=int,
+        help="Upload to a DELAYED queue, rather than the usual Incoming. "
+             "This takes an argument from 0 to 15. Note  that  a "
+             "delay of 0 is different from no delay at all.")
+
+    parser.add_argument(
+        "--test",
+        choices=['none', 'auto', 'manual'],
+        default='auto',
+        help="how to test?")
+
     args = parser.parse_args()
 
     if args.working_dir:
         dsc_file = build_src(args.working_dir)
     else:
         dsc_file = args.dsc_file
-        dsc_file = os.path.abspath(args.dsc_file)
 
-    with temp_dir() as tmp_dir:
-        changes_file = build(tmp_dir, dsc_file, "unstable", None)
-        sign(changes_file)
-        lint(changes_file)
-        test(changes_file, "unstable")
+    distributions = set(args.distributions)
+    if len(distributions) == 0:
         if 'debian' in args.upload:
-            check_call(["dput", "ftp-master", changes_file])
+            distributions.add("sid")
         if 'vpac' in args.upload:
-            check_call(["dput", "vpac", changes_file])
+            distributions.add("sid")
+            distributions.add("wheezy")
 
-    if 'vpac' in args.upload:
+    if 'sid' in distributions:
         with temp_dir() as tmp_dir:
-            changes_file = build(tmp_dir, dsc_file, "wheezy", "~bpo70+1")
+            changes_file = build(tmp_dir, dsc_file, "unstable", None)
             sign(changes_file)
-            test(changes_file, "wheezy")
-            check_call(["dput", "vpac", changes_file])
+            lint(changes_file)
+            test(changes_file, "unstable", args.test)
+            if 'debian' in args.upload:
+                upload_debian("ftp-master", args.delayed, changes_file)
+            if 'vpac' in args.upload:
+                upload_debian("vpac", 0, changes_file)
 
+    if 'wheezy' in distributions:
         with temp_dir() as tmp_dir:
-            changes_file = build(tmp_dir, dsc_file, "squeeze", "~bpo60+1")
+            changes_file = build(tmp_dir, dsc_file, "wheezy", "~bpo70")
             sign(changes_file)
-            test(changes_file, "squeeze")
-            check_call(["dput", "vpac", changes_file])
+            test(changes_file, "wheezy", args.test)
+            if 'vpac' in args.upload:
+                upload_debian("vpac", 0, changes_file)
+
+    if 'squeeze' in distributions:
+        with temp_dir() as tmp_dir:
+            changes_file = build(tmp_dir, dsc_file, "squeeze", "~bpo60")
+            sign(changes_file)
+            test(changes_file, "squeeze", args.test)
+            if 'vpac' in args.upload:
+                upload_debian("vpac", 0, changes_file)
 
     if 'pypi' in args.upload:
         with temp_dir() as tmp_dir:
