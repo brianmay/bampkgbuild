@@ -84,7 +84,9 @@ def build_src(src_dir):
     return dsc_file
 
 
-def build(tmp_dir, dsc_path, distribution, add_to_version):
+def build(tmp_dir, dsc_path,
+          distribution, architecture, arch_all, source,
+          add_to_version):
     d = deb822.Dsc(open(dsc_path))
 
     src_dir = os.path.dirname(dsc_path)
@@ -143,10 +145,24 @@ def build(tmp_dir, dsc_path, distribution, add_to_version):
 
         dsc_file = "%s_%s.dsc" % (cl.package, cl.version)
 
+    if arch_all:
+        arch_all = "--arch-all"
+    else:
+        arch_all = "--no-arch-all"
+
+    if source:
+        source = "--source"
+    else:
+        source = "--no-source"
+
     check_call([
         "sbuild",
-        "-d", distribution,
-        "-sA", "--force-orig-source",
+        arch_all, source,
+        "--dist", distribution,
+        "--build", architecture,
+        "--host", architecture,
+        "--chroot", "%s-%s" % (distribution, architecture),
+        "--force-orig-source",
         dsc_file])
 
     changes_file = None
@@ -166,8 +182,8 @@ def sign(changes_file):
     check_call(["debsign", changes_file])
 
 
-def lint(changes_file):
-    with schroot.schroot("sid") as chroot:
+def lint(changes_file, chroot):
+    with schroot.schroot(chroot) as chroot:
         chroot.check_call([
             "apt-get", "--yes",
             "install", "lintian"], user="root")
@@ -300,32 +316,48 @@ def main():
             distributions.add("sid")
             distributions.add("wheezy")
 
-    if 'sid' in distributions:
-        with temp_dir() as tmp_dir:
-            changes_file = build(tmp_dir, dsc_file, "unstable", None)
-            sign(changes_file)
-            lint(changes_file)
-            test(changes_file, "unstable", args.test)
-            if 'debian' in args.upload:
-                upload_debian("ftp-master", args.delayed, changes_file)
-            if 'vpac' in args.upload:
-                upload_debian("vpac", 0, changes_file)
+    arch_all = True
+    source = True
+    for architecture in ['amd64', 'i386']:
 
-    if 'wheezy' in distributions:
-        with temp_dir() as tmp_dir:
-            changes_file = build(tmp_dir, dsc_file, "wheezy", "~bpo70")
-            sign(changes_file)
-            test(changes_file, "wheezy", args.test)
-            if 'vpac' in args.upload:
-                upload_debian("vpac", 0, changes_file)
+        if 'sid' in distributions:
+            with temp_dir() as tmp_dir:
+                changes_file = build(
+                    tmp_dir, dsc_file,
+                    "unstable", architecture, arch_all, source,
+                    None)
+                sign(changes_file)
+                lint(changes_file, "unstable-%s" % architecture)
+                test(changes_file, "unstable-%s" % architecture, args.test)
+                if 'debian' in args.upload:
+                    upload_debian("ftp-master", args.delayed, changes_file)
+                if 'vpac' in args.upload:
+                    upload_debian("vpac", 0, changes_file)
 
-    if 'squeeze' in distributions:
-        with temp_dir() as tmp_dir:
-            changes_file = build(tmp_dir, dsc_file, "squeeze", "~bpo60")
-            sign(changes_file)
-            test(changes_file, "squeeze", args.test)
-            if 'vpac' in args.upload:
-                upload_debian("vpac", 0, changes_file)
+        if 'wheezy' in distributions:
+            with temp_dir() as tmp_dir:
+                changes_file = build(
+                    tmp_dir, dsc_file,
+                    "wheezy", architecture, arch_all, source,
+                    "~bpo70")
+                sign(changes_file)
+                test(changes_file, "wheezy-%s" % architecture, args.test)
+                if 'vpac' in args.upload:
+                    upload_debian("vpac", 0, changes_file)
+
+        if 'squeeze' in distributions:
+            with temp_dir() as tmp_dir:
+                changes_file = build(
+                    tmp_dir, dsc_file,
+                    "squeeze", architecture, arch_all, source,
+                    "~bpo60")
+                sign(changes_file)
+                test(changes_file, "squeeze-%s" % architecture, args.test)
+                if 'vpac' in args.upload:
+                    upload_debian("vpac", 0, changes_file)
+
+        arch_all = False
+        source = False
 
     if 'pypi' in args.upload:
         with temp_dir() as tmp_dir:
