@@ -288,6 +288,13 @@ def main():
         help="build distributions")
 
     parser.add_argument(
+        "--architectures",
+        choices=['i386', 'amd64'],
+        action="append",
+        default=[],
+        help="build architecture")
+
+    parser.add_argument(
         "--delayed",
         choices=range(0, 15+1), default=0,
         type=int,
@@ -316,9 +323,13 @@ def main():
             distributions.add("sid")
             distributions.add("wheezy")
 
+    architectures = set(args.architectures)
+    if len(architectures) == 0:
+        architectures = ['i386', 'amd64']
+
     arch_all = True
     source = True
-    for architecture in ['amd64', 'i386']:
+    for architecture in architectures:
 
         if 'sid' in distributions:
             with temp_dir() as tmp_dir:
@@ -329,7 +340,7 @@ def main():
                 sign(changes_file)
                 lint(changes_file, "unstable-%s" % architecture)
                 test(changes_file, "unstable-%s" % architecture, args.test)
-                if 'debian' in args.upload:
+                if 'debian' in args.upload and source:
                     upload_debian("ftp-master", args.delayed, changes_file)
                 if 'vpac' in args.upload:
                     upload_debian("vpac", 0, changes_file)
