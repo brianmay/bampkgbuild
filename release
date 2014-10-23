@@ -276,7 +276,7 @@ def main():
 
     parser.add_argument(
         "--upload",
-        choices=['vpac', 'debian', 'pypi'],
+        choices=['vpac', 'internal', 'debian', 'pypi'],
         action="append",
         default=[],
         help="upload destinations")
@@ -311,6 +311,10 @@ def main():
 
     args = parser.parse_args()
 
+    if 'internal' in args.upload:
+        for value in [v for v in args.upload if v != "internal"]:
+            raise RuntimeError("internal and %s conflict." % value)
+
     if args.working_dir:
         dsc_file = build_src(args.working_dir)
     else:
@@ -320,7 +324,7 @@ def main():
     if len(distributions) == 0:
         if 'debian' in args.upload:
             distributions.add("sid")
-        if 'vpac' in args.upload:
+        if 'vpac' in args.upload or 'internal' in args.upload:
             distributions.add("sid")
             distributions.add("wheezy")
 
@@ -345,6 +349,8 @@ def main():
                     upload_debian("ftp-master", args.delayed, changes_file)
                 if 'vpac' in args.upload:
                     upload_debian("vpac", 0, changes_file)
+                if 'internal' in args.upload:
+                    upload_debian("internal", 0, changes_file)
 
         if 'wheezy' in distributions:
             with temp_dir() as tmp_dir:
@@ -356,6 +362,8 @@ def main():
                 test(changes_file, "wheezy-%s" % architecture, args.test)
                 if 'vpac' in args.upload:
                     upload_debian("vpac", 0, changes_file)
+                if 'internal' in args.upload:
+                    upload_debian("internal", 0, changes_file)
 
         if 'squeeze' in distributions:
             with temp_dir() as tmp_dir:
@@ -367,6 +375,8 @@ def main():
                 test(changes_file, "squeeze-%s" % architecture, args.test)
                 if 'vpac' in args.upload:
                     upload_debian("vpac", 0, changes_file)
+                if 'internal' in args.upload:
+                    upload_debian("internal", 0, changes_file)
 
         arch_all = False
         source = False
