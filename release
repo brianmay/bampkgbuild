@@ -207,6 +207,7 @@ def test(changes_file, chroot, test_mode):
             debs.append(os.path.join(build_dir, f['name']))
 
     with schroot.schroot(chroot) as chroot:
+        chroot.check_call(["apt-get", "update"], user="root")
         chroot.check_call(["dpkg", "--unpack", "--"] + debs, user="root")
         chroot.check_call(["apt-get", "--yes", "-f", "install"], user="root")
 
