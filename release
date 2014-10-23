@@ -56,7 +56,7 @@ def check_call(cmd):
     return subprocess.check_call(cmd)
 
 
-def build_src(src_dir):
+def deb_build_src(src_dir):
     changelog_file = os.path.join(src_dir, "debian/changelog")
     cl = changelog.Changelog(open(changelog_file))
 
@@ -84,9 +84,9 @@ def build_src(src_dir):
     return dsc_file
 
 
-def build(tmp_dir, dsc_path,
-          distribution, architecture, arch_all, source,
-          add_to_version):
+def deb_build(tmp_dir, dsc_path,
+              distribution, architecture, arch_all, source,
+              add_to_version):
     d = deb822.Dsc(open(dsc_path))
 
     src_dir = os.path.dirname(dsc_path)
@@ -101,7 +101,7 @@ def build(tmp_dir, dsc_path,
         dst_path = os.path.join(tmp_dir, f['name'])
         shutil.copyfile(src_path, dst_path)
 
-    build_dir = os.path.join(tmp_dir, "build")
+    build_dir = os.path.join(tmp_dir, "deb_build")
 
     os.chdir(tmp_dir)
 
@@ -141,7 +141,7 @@ def build(tmp_dir, dsc_path,
         os.chdir(tmp_dir)
         check_call([
             "dpkg-source",
-            "-b", "build"])
+            "-b", "deb_build"])
 
         dsc_file = "%s_%s.dsc" % (cl.package, cl.version)
 
@@ -178,11 +178,11 @@ def build(tmp_dir, dsc_path,
     return changes_file
 
 
-def sign(changes_file):
+def deb_sign(changes_file):
     check_call(["debsign", changes_file])
 
 
-def lint(changes_file, chroot):
+def deb_lint(changes_file, chroot):
     with schroot.schroot(chroot) as chroot:
         chroot.check_call([
             "apt-get", "--yes",
@@ -194,7 +194,7 @@ def lint(changes_file, chroot):
 #        chroot.check_call(["lintian4py", changes_file])
 
 
-def test(changes_file, chroot, test_mode):
+def deb_test(changes_file, chroot, test_mode):
     if test_mode == "none":
         return
 
@@ -228,7 +228,7 @@ def upload_debian(server, delayed, changes_file):
 
 def upload_pypi(tmp_dir, dsc_path):
     dsc_file = os.path.abspath(dsc_path)
-    build_dir = os.path.join(tmp_dir, "build")
+    build_dir = os.path.join(tmp_dir, "deb_build")
 
     os.chdir(tmp_dir)
     check_call(["dpkg-source", "-x", dsc_file, build_dir])
@@ -316,7 +316,7 @@ def main():
             raise RuntimeError("internal and %s conflict." % value)
 
     if args.working_dir:
-        dsc_file = build_src(args.working_dir)
+        dsc_file = deb_build_src(args.working_dir)
     else:
         dsc_file = args.dsc_file
 
@@ -338,13 +338,13 @@ def main():
 
         if 'sid' in distributions:
             with temp_dir() as tmp_dir:
-                changes_file = build(
+                changes_file = deb_build(
                     tmp_dir, dsc_file,
                     "unstable", architecture, arch_all, source,
                     None)
-                sign(changes_file)
-                lint(changes_file, "unstable-%s" % architecture)
-                test(changes_file, "unstable-%s" % architecture, args.test)
+                deb_sign(changes_file)
+                deb_lint(changes_file, "unstable-%s" % architecture)
+                deb_test(changes_file, "unstable-%s" % architecture, args.test)
                 if 'debian' in args.upload and source:
                     upload_debian("ftp-master", args.delayed, changes_file)
                 if 'vpac' in args.upload:
@@ -354,12 +354,12 @@ def main():
 
         if 'wheezy' in distributions:
             with temp_dir() as tmp_dir:
-                changes_file = build(
+                changes_file = deb_build(
                     tmp_dir, dsc_file,
                     "wheezy", architecture, arch_all, source,
                     "~bpo70")
-                sign(changes_file)
-                test(changes_file, "wheezy-%s" % architecture, args.test)
+                deb_sign(changes_file)
+                deb_test(changes_file, "wheezy-%s" % architecture, args.test)
                 if 'vpac' in args.upload:
                     upload_debian("vpac", 0, changes_file)
                 if 'internal' in args.upload:
@@ -367,12 +367,12 @@ def main():
 
         if 'squeeze' in distributions:
             with temp_dir() as tmp_dir:
-                changes_file = build(
+                changes_file = deb_build(
                     tmp_dir, dsc_file,
                     "squeeze", architecture, arch_all, source,
                     "~bpo60")
-                sign(changes_file)
-                test(changes_file, "squeeze-%s" % architecture, args.test)
+                deb_sign(changes_file)
+                deb_test(changes_file, "squeeze-%s" % architecture, args.test)
                 if 'vpac' in args.upload:
                     upload_debian("vpac", 0, changes_file)
                 if 'internal' in args.upload:
