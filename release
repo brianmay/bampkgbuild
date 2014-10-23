@@ -219,14 +219,14 @@ def deb_test(changes_file, chroot, test_mode):
             raise RuntimeError("Unknown test mode %s" % test_mode)
 
 
-def upload_debian(server, delayed, changes_file):
+def deb_upload(server, delayed, changes_file):
     if delayed > 0:
         check_call(["dput", "--delayed=%d" % delayed, server, changes_file])
     else:
         check_call(["dput", server, changes_file])
 
 
-def upload_pypi(tmp_dir, dsc_path):
+def pypi_upload(tmp_dir, dsc_path):
     dsc_file = os.path.abspath(dsc_path)
     build_dir = os.path.join(tmp_dir, "deb_build")
 
@@ -346,11 +346,11 @@ def main():
                 deb_lint(changes_file, "unstable-%s" % architecture)
                 deb_test(changes_file, "unstable-%s" % architecture, args.test)
                 if 'debian' in args.upload and source:
-                    upload_debian("ftp-master", args.delayed, changes_file)
+                    deb_upload("ftp-master", args.delayed, changes_file)
                 if 'vpac' in args.upload:
-                    upload_debian("vpac", 0, changes_file)
+                    deb_upload("vpac", 0, changes_file)
                 if 'internal' in args.upload:
-                    upload_debian("internal", 0, changes_file)
+                    deb_upload("internal", 0, changes_file)
 
         if 'wheezy' in distributions:
             with temp_dir() as tmp_dir:
@@ -361,9 +361,9 @@ def main():
                 deb_sign(changes_file)
                 deb_test(changes_file, "wheezy-%s" % architecture, args.test)
                 if 'vpac' in args.upload:
-                    upload_debian("vpac", 0, changes_file)
+                    deb_upload("vpac", 0, changes_file)
                 if 'internal' in args.upload:
-                    upload_debian("internal", 0, changes_file)
+                    deb_upload("internal", 0, changes_file)
 
         if 'squeeze' in distributions:
             with temp_dir() as tmp_dir:
@@ -374,16 +374,16 @@ def main():
                 deb_sign(changes_file)
                 deb_test(changes_file, "squeeze-%s" % architecture, args.test)
                 if 'vpac' in args.upload:
-                    upload_debian("vpac", 0, changes_file)
+                    deb_upload("vpac", 0, changes_file)
                 if 'internal' in args.upload:
-                    upload_debian("internal", 0, changes_file)
+                    deb_upload("internal", 0, changes_file)
 
         arch_all = False
         source = False
 
     if 'pypi' in args.upload:
         with temp_dir() as tmp_dir:
-            upload_pypi(tmp_dir, dsc_file)
+            pypi_upload(tmp_dir, dsc_file)
 
 if __name__ == "__main__":
     main()
