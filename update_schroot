@@ -3,11 +3,11 @@ set -e
 
 for i in `schroot -l`; do
     case "$i" in
-    source:centos*)
+    source:centos*|source:fedora*)
         echo ""
         echo "$i -- yum"
         echo "-------------------------------------------"
-        schroot -c "$i" -- yum update
+        schroot -c "$i" -- yum update -y
         echo "-------------------------------------------"
         ;;
     source:*)

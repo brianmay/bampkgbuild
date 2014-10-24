@@ -178,6 +178,69 @@ def deb_build(tmp_dir, dsc_path,
     return changes_file
 
 
+def rpm_build(tmp_dir, dsc_path,
+              distribution, architecture, source):
+    d = deb822.Dsc(open(dsc_path))
+
+    src_dir = os.path.dirname(dsc_path)
+    dsc_file = os.path.basename(dsc_path)
+
+    src_path = dsc_path
+    dst_path = os.path.join(tmp_dir, dsc_file)
+    shutil.copyfile(src_path, dst_path)
+
+    orig_name = None
+    orig_path = None
+
+    for f in d['files']:
+        src_path = os.path.join(src_dir, f['name'])
+        dst_path = os.path.join(tmp_dir, f['name'])
+        shutil.copyfile(src_path, dst_path)
+
+        if f['name'].endswith('.orig.tar.gz'):
+            orig_name = f['name']
+            orig_path = src_path
+
+    assert orig_name is not None
+    assert orig_path is not None
+
+    build_dir = os.path.join(tmp_dir, "BUILD")
+
+    dst_dir = os.path.join(tmp_dir, "SOURCES")
+    dst_name = orig_name.replace('.orig.tar.gz', '.tar.gz')
+    dst_path = os.path.join(dst_dir, dst_name)
+
+    if not os.path.isdir(dst_dir):
+        os.mkdir(dst_dir)
+
+    shutil.copyfile(orig_path, dst_path)
+
+    with chdir(src_dir):
+        check_call(["dpkg-source", "-x", dsc_file, build_dir])
+
+    if source:
+        source = "-ba"
+    else:
+        source = "-bb"
+
+    spec_dir = os.path.join(build_dir, "packaging")
+
+    with schroot.schroot("%s-%s" % (distribution, architecture)) as chroot:
+        for name in os.listdir(spec_dir):
+            if not name.endswith(".spec"):
+                continue
+
+            spec_file = os.path.join(spec_dir, name)
+
+            chroot.check_call([
+                "rpmbuild",
+                "--define", "_topdir "+tmp_dir,
+                source,
+                spec_file])
+
+    return None
+
+
 def deb_sign(changes_file):
     check_call(["debsign", changes_file])
 
@@ -224,6 +287,42 @@ def deb_upload(server, delayed, changes_file):
         check_call(["dput", "--delayed=%d" % delayed, server, changes_file])
     else:
         check_call(["dput", server, changes_file])
+
+
+def rpm_test(tmp_dir, chroot, test_mode):
+    if test_mode == "none":
+        return
+
+    rpms = []
+
+    src_dir = os.path.join(tmp_dir, "RPMS")
+    for name in os.listdir(src_dir):
+        src_dir_2 = os.path.join(src_dir, name)
+        for name_2 in os.listdir(src_dir_2):
+            rpms.append(os.path.join(src_dir_2, name_2))
+
+    with schroot.schroot(chroot) as chroot:
+        chroot.check_call(
+            ["yum", "update", "--assumeyes"], user="root")
+        chroot.check_call(
+            ["yum", "localinstall", "--assumeyes", "--"] + rpms, user="root")
+
+        if test_mode == "auto":
+            pass
+        elif test_mode == "manual":
+            chroot.check_call(["bash"], user="root")
+        else:
+            raise RuntimeError("Unknown test mode %s" % test_mode)
+
+
+def rpm_upload(tmp_dir, dst_path):
+    src_path = os.path.join(tmp_dir, "SRPMS", "")
+    check_call(["rsync", "-rvp", src_path, dst_path])
+
+    src_dir = os.path.join(tmp_dir, "RPMS")
+    for name in os.listdir(src_dir):
+        src_path = os.path.join(src_dir, name, "")
+        check_call(["rsync", "-rvp", src_path, dst_path])
 
 
 def pypi_upload(tmp_dir, dsc_path):
@@ -283,7 +382,8 @@ def main():
 
     parser.add_argument(
         "--distributions",
-        choices=['squeeze', 'wheezy', 'jessie', 'sid'],
+        choices=['squeeze', 'wheezy', 'jessie', 'sid',
+                 'fedora20', 'centos6', 'centos7'],
         action="append",
         default=[],
         help="build distributions")
@@ -327,6 +427,9 @@ def main():
         if 'vpac' in args.upload or 'internal' in args.upload:
             distributions.add("sid")
             distributions.add("wheezy")
+            distributions.add("centos6")
+            distributions.add("centos7")
+            distributions.add("fedora20")
 
     architectures = set(args.architectures)
     if len(architectures) == 0:
@@ -377,6 +480,39 @@ def main():
                     deb_upload("vpac", 0, changes_file)
                 if 'internal' in args.upload:
                     deb_upload("internal", 0, changes_file)
+
+        if 'fedora20' in distributions:
+            with temp_dir() as tmp_dir:
+                rpm_build(
+                    tmp_dir, dsc_file,
+                    "fedora20", architecture, source)
+                rpm_test(tmp_dir, "fedora20-%s" % architecture, args.test)
+                if 'vpac' in args.upload:
+                    rpm_upload(
+                        tmp_dir,
+                        "root@code.vpac.org:/var/www/fedora/20/incoming")
+
+        if 'centos6' in distributions:
+            with temp_dir() as tmp_dir:
+                rpm_build(
+                    tmp_dir, dsc_file,
+                    "centos6", architecture, source)
+                rpm_test(tmp_dir, "centos6-%s" % architecture, args.test)
+                if 'vpac' in args.upload:
+                    rpm_upload(
+                        tmp_dir,
+                        "root@code.vpac.org:/var/www/centos/6/incoming")
+
+        if 'centos7' in distributions:
+            with temp_dir() as tmp_dir:
+                rpm_build(
+                    tmp_dir, dsc_file,
+                    "centos7", architecture, source)
+                rpm_test(tmp_dir, "centos7-%s" % architecture, args.test)
+                if 'vpac' in args.upload:
+                    rpm_upload(
+                        tmp_dir,
+                        "root@code.vpac.org:/var/www/centos/7/incoming")
 
         arch_all = False
         source = False
