@@ -103,15 +103,14 @@ def deb_build(tmp_dir, dsc_path,
 
     build_dir = os.path.join(tmp_dir, "deb_build")
 
-    os.chdir(tmp_dir)
-
     if add_to_version is not None:
-        check_call(["dpkg-source", "-x", dsc_file, build_dir])
-
-        os.chdir(build_dir)
+        with chdir(tmp_dir):
+            check_call(["dpkg-source", "-x", dsc_file, build_dir])
 
         changelog_file = "debian/changelog"
-        cl = changelog.Changelog(open(changelog_file))
+        changelog_path = os.path.join(build_dir, changelog_file)
+
+        cl = changelog.Changelog(open(changelog_path))
         version = cl.get_version()
         version = str(version)
 
@@ -136,14 +135,15 @@ def deb_build(tmp_dir, dsc_path,
         cl.add_change('')
         cl.add_change("  * Rebuild for %s." % distribution)
         cl.add_change('')
-        cl.write_to_open_file(open(changelog_file, "w"))
+        cl.write_to_open_file(open(changelog_path, "w"))
 
-        os.chdir(tmp_dir)
-        check_call([
-            "dpkg-source",
-            "-b", "deb_build"])
+        with chdir(tmp_dir):
+            check_call([
+                "dpkg-source",
+                "-b", "deb_build"])
 
         dsc_file = "%s_%s.dsc" % (cl.package, cl.version)
+        dsc_path = os.path.join(tmp_dir, dsc_file)
 
     if arch_all:
         arch_all = "--arch-all"
@@ -155,22 +155,23 @@ def deb_build(tmp_dir, dsc_path,
     else:
         source = "--no-source"
 
-    check_call([
-        "sbuild",
-        arch_all, source,
-        "--dist", distribution,
-        "--build", architecture,
-        "--host", architecture,
-        "--chroot", "%s-%s" % (distribution, architecture),
-        "--force-orig-source",
-        dsc_file])
+    with chdir(tmp_dir):
+        check_call([
+            "sbuild",
+            arch_all, source,
+            "--dist", distribution,
+            "--build", architecture,
+            "--host", architecture,
+            "--chroot", "%s-%s" % (distribution, architecture),
+            "--force-orig-source",
+            dsc_file])
 
     changes_file = None
     for name in os.listdir(tmp_dir):
         if name.endswith(".changes"):
             if changes_file is not None:
                 raise RuntimeError("Found more then one .changes files")
-            changes_file = name
+            changes_file = os.path.join(tmp_dir, name)
 
     if changes_file is None:
         raise RuntimeError("Could not find .changes files")
