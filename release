@@ -334,11 +334,11 @@ def rpm_upload(tmp_dir, dst_path):
 
 
 def pypi_upload(tmp_dir, dsc_path):
-    dsc_file = os.path.abspath(dsc_path)
+    dsc_path = os.path.abspath(dsc_path)
     build_dir = os.path.join(tmp_dir, "deb_build")
 
     os.chdir(tmp_dir)
-    check_call(["dpkg-source", "-x", dsc_file, build_dir])
+    check_call(["dpkg-source", "-x", dsc_path, build_dir])
 
     os.chdir(build_dir)
     check_call(["./setup.py", "sdist", "upload"])
