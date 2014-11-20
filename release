@@ -180,7 +180,7 @@ def deb_build(tmp_dir, dsc_path,
 
 
 def rpm_build(tmp_dir, dsc_path,
-              distribution, architecture, source):
+              distribution, architecture, arch_all, source):
     d = deb822.Dsc(open(dsc_path))
 
     src_dir = os.path.dirname(dsc_path)
@@ -233,6 +233,9 @@ def rpm_build(tmp_dir, dsc_path,
         for name in os.listdir(spec_dir):
             if not name.endswith(".spec"):
                 continue
+
+            # FIXME! We shouldn't build arch independant packages if arch_all
+            # is False.
 
             spec_file = os.path.join(spec_dir, name)
 
@@ -499,7 +502,7 @@ def main():
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
                     tmp_dir, dsc_file,
-                    "fedora20", architecture, source)
+                    "fedora20", architecture, arch_all, source)
                 if rc:
                     rpm_test(tmp_dir, "fedora20-%s" % architecture, args.test)
                     if 'vpac' in args.upload:
@@ -511,7 +514,7 @@ def main():
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
                     tmp_dir, dsc_file,
-                    "centos6", architecture, source)
+                    "centos6", architecture, arch_all, source)
                 if rc:
                     rpm_test(tmp_dir, "centos6-%s" % architecture, args.test)
                     if 'vpac' in args.upload:
@@ -523,7 +526,7 @@ def main():
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
                     tmp_dir, dsc_file,
-                    "centos7", architecture, source)
+                    "centos7", architecture, arch_all, source)
                 if rc:
                     rpm_test(tmp_dir, "centos7-%s" % architecture, args.test)
                     if 'vpac' in args.upload:
