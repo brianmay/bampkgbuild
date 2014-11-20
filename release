@@ -84,7 +84,7 @@ def deb_build_src(src_dir):
     return dsc_file
 
 
-def deb_build(tmp_dir, dsc_path,
+def deb_build(tmp_dir, dsc_path, chroot_name,
               distribution, architecture, arch_all, source,
               add_to_version):
     d = deb822.Dsc(open(dsc_path))
@@ -162,7 +162,7 @@ def deb_build(tmp_dir, dsc_path,
             "--dist", distribution,
             "--build", architecture,
             "--host", architecture,
-            "--chroot", "%s-%s" % (distribution, architecture),
+            "--chroot", chroot_name,
             "--force-orig-source",
             dsc_file])
 
@@ -179,7 +179,7 @@ def deb_build(tmp_dir, dsc_path,
     return changes_file
 
 
-def rpm_build(tmp_dir, dsc_path,
+def rpm_build(tmp_dir, dsc_path, chroot_name,
               distribution, architecture, arch_all, source):
     d = deb822.Dsc(open(dsc_path))
 
@@ -229,7 +229,7 @@ def rpm_build(tmp_dir, dsc_path,
     if not os.path.isdir(spec_dir):
         return False
 
-    with schroot.schroot("%s-%s" % (distribution, architecture)) as chroot:
+    with schroot.schroot(chroot_name) as chroot:
         for name in os.listdir(spec_dir):
             if not name.endswith(".spec"):
                 continue
@@ -393,7 +393,7 @@ def main():
 
     parser.add_argument(
         "--distributions",
-        choices=['squeeze', 'wheezy', 'jessie', 'sid',
+        choices=['squeeze', 'wheezy', 'jessie', 'sid', 'experimental',
                  'fedora20', 'centos6', 'centos7'],
         action="append",
         default=[],
@@ -450,17 +450,37 @@ def main():
     source = True
     for architecture in architectures:
 
-        if 'sid' in distributions:
+        if 'experimental' in distributions:
+            distribution = "experimental"
+            chroot = "sid-%s" % (architecture,)
             with temp_dir() as tmp_dir:
                 changes_file = deb_build(
-                    tmp_dir, dsc_file,
-                    "unstable", architecture, arch_all, source,
+                    tmp_dir, dsc_file, chroot,
+                    distribution, architecture, arch_all, source,
                     None)
                 if changes_file is not None:
                     deb_sign(changes_file)
-                    deb_lint(changes_file, "unstable-%s" % architecture)
-                    deb_test(changes_file, "unstable-%s" % architecture,
-                             args.test)
+                    deb_lint(changes_file, chroot)
+                    deb_test(changes_file, chroot, args.test)
+                    if 'debian' in args.upload and source:
+                        deb_upload("ftp-master", args.delayed, changes_file)
+                    if 'vpac' in args.upload:
+                        deb_upload("vpac", 0, changes_file)
+                    if 'internal' in args.upload:
+                        deb_upload("internal", 0, changes_file)
+
+        if 'sid' in distributions:
+            distribution = "unstable"
+            chroot = "sid-%s" % (architecture,)
+            with temp_dir() as tmp_dir:
+                changes_file = deb_build(
+                    tmp_dir, dsc_file, chroot,
+                    distribution, architecture, arch_all, source,
+                    None)
+                if changes_file is not None:
+                    deb_sign(changes_file)
+                    deb_lint(changes_file, chroot)
+                    deb_test(changes_file, chroot, args.test)
                     if 'debian' in args.upload and source:
                         deb_upload("ftp-master", args.delayed, changes_file)
                     if 'vpac' in args.upload:
@@ -469,66 +489,74 @@ def main():
                         deb_upload("internal", 0, changes_file)
 
         if 'wheezy' in distributions:
+            distribution = "wheezy"
+            chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 changes_file = deb_build(
-                    tmp_dir, dsc_file,
-                    "wheezy", architecture, arch_all, source,
+                    tmp_dir, dsc_file, chroot,
+                    distribution, architecture, arch_all, source,
                     "~bpo70")
                 if changes_file is not None:
                     deb_sign(changes_file)
-                    deb_test(changes_file, "wheezy-%s" % architecture,
-                             args.test)
+                    deb_test(changes_file, chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
                         deb_upload("internal", 0, changes_file)
 
         if 'squeeze' in distributions:
+            distribution = "squeeze"
+            chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 changes_file = deb_build(
-                    tmp_dir, dsc_file,
-                    "squeeze", architecture, arch_all, source,
+                    tmp_dir, dsc_file, chroot,
+                    distribution, architecture, arch_all, source,
                     "~bpo60")
                 if changes_file is not None:
                     deb_sign(changes_file)
-                    deb_test(changes_file, "squeeze-%s" % architecture,
-                             args.test)
+                    deb_test(changes_file, chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
                         deb_upload("internal", 0, changes_file)
 
         if 'fedora20' in distributions:
+            distribution = "fedora20"
+            chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file,
-                    "fedora20", architecture, arch_all, source)
+                    tmp_dir, dsc_file, chroot,
+                    distribution, architecture, arch_all, source)
                 if rc:
-                    rpm_test(tmp_dir, "fedora20-%s" % architecture, args.test)
+                    rpm_test(tmp_dir, chroot, args.test)
                     if 'vpac' in args.upload:
                         rpm_upload(
                             tmp_dir,
                             "root@code.vpac.org:/var/www/fedora/20/incoming")
 
         if 'centos6' in distributions:
+            distribution = "centos6"
+            chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file,
-                    "centos6", architecture, arch_all, source)
+                    tmp_dir, dsc_file, chroot,
+                    distribution, architecture, arch_all, source)
                 if rc:
-                    rpm_test(tmp_dir, "centos6-%s" % architecture, args.test)
+                    rpm_test(tmp_dir, chroot, args.test)
                     if 'vpac' in args.upload:
                         rpm_upload(
                             tmp_dir,
                             "root@code.vpac.org:/var/www/centos/6/incoming")
 
         if 'centos7' in distributions:
+            distribution = "centos7"
+            chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file,
-                    "centos7", architecture, arch_all, source)
+                    tmp_dir, dsc_file, chroot,
+                    distribution, architecture, arch_all, source)
                 if rc:
-                    rpm_test(tmp_dir, "centos7-%s" % architecture, args.test)
+                    rpm_test(tmp_dir, chroot, args.test)
                     if 'vpac' in args.upload:
                         rpm_upload(
                             tmp_dir,
