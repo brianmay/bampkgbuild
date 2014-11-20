@@ -70,8 +70,8 @@ def deb_build_src(src_dir):
                 "--git-builder=debuild -i -I -S"])
 
     else:
-        abs_src_dir = os.path.abspath(src_dir)
-        src_name = os.path.basename(abs_src_dir)
+        src_abs = os.path.abspath(src_dir)
+        src_name = os.path.basename(src_abs)
 
         with chdir(parent_dir):
 
