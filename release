@@ -288,7 +288,8 @@ def deb_test(changes_file, chroot, test_mode):
         if test_mode == "auto":
             pass
         elif test_mode == "manual":
-            chroot.check_call(["bash"], user="root")
+            with chdir(build_dir):
+                chroot.check_call(["bash"], user="root")
         else:
             raise RuntimeError("Unknown test mode %s" % test_mode)
 
