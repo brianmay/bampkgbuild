@@ -17,14 +17,20 @@ fi
 SUITE="$1"
 shift
 
-if [ "$1" = "amd64" ]
+if [ -z "$1" ]
 then
-    NAME="$SUITE"
-    ARCH="--arch=amd64"
-elif [ "$1" = "i386" ]
+    echo "No arch name given" 1>&2
+    exit 1
+fi
+ARCH="$1"
+shift
+
+if [ "$ARCH" = "amd64" ]
 then
-    NAME="$SUITE-i386"
-    ARCH="--arch=i386"
+    true
+elif [ "$ARCH" = "i386" ]
+then
+    true
 else
     echo "Unknown cpu type $1" 1>&2
     exit 1
@@ -33,7 +39,7 @@ fi
 case "$(hostname --short)" in
 falidae)
 	VG="falidae"
-	LV="schroot-$NAME"
+	LV="schroot-$SUITE-$ARCH"
 
 	DIR="/mnt"
 	UMOUNT="yes"
@@ -46,7 +52,7 @@ falidae)
 
 aquitard)
 	VG="aquitard"
-	LV="schroot-$NAME"
+	LV="schroot-$SUITE-$ARCH"
 
 	DIR="/mnt"
 	UMOUNT="yes"
@@ -58,19 +64,19 @@ aquitard)
 	;;
 
 merlock)
-	DIR="/srv/chroot/$NAME"
+	DIR="/srv/chroot/$SUITE-$ARCH"
 	UMOUNT=""
 	MIRROR="http://proxy.pri:9999/$DIST"
 	;;
 
 *)
-	DIR="/srv/chroot/$NAME"
+	DIR="/srv/chroot/$SUITE-$ARCH"
 	UMOUNT=""
 	MIRROR="http://ftp.au.debian.org/$DIST"
 	;;
 esac
 
-debootstrap "$ARCH" "$SUITE" "$DIR" "$MIRROR"
+debootstrap --arch="$ARCH" "$SUITE" "$DIR" "$MIRROR"
 echo 'APT::Install-Recommends "false";' > "$DIR"/etc/apt/apt.conf
 chmod 644 "$DIR"/etc/apt/apt.conf
 chroot "$DIR" apt-get update
