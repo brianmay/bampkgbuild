@@ -438,6 +438,7 @@ def main():
             distributions.add("sid")
         if 'vpac' in args.upload or 'internal' in args.upload:
             distributions.add("sid")
+            distributions.add("jessie")
             distributions.add("wheezy")
             distributions.add("centos6")
             distributions.add("centos7")
@@ -484,6 +485,22 @@ def main():
                     deb_test(changes_file, chroot, args.test)
                     if 'debian' in args.upload and source:
                         deb_upload("ftp-master", args.delayed, changes_file)
+                    if 'vpac' in args.upload:
+                        deb_upload("vpac", 0, changes_file)
+                    if 'internal' in args.upload:
+                        deb_upload("internal", 0, changes_file)
+
+        if 'jessie' in distributions:
+            distribution = "jessie"
+            chroot = "%s-%s" % (distribution, architecture)
+            with temp_dir() as tmp_dir:
+                changes_file = deb_build(
+                    tmp_dir, dsc_file, chroot,
+                    distribution, architecture, arch_all, source,
+                    "~bpo70")
+                if changes_file is not None:
+                    deb_sign(changes_file)
+                    deb_test(changes_file, chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
