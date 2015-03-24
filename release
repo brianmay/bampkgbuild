@@ -497,7 +497,7 @@ def main():
                 changes_file = deb_build(
                     tmp_dir, dsc_file, chroot,
                     distribution, architecture, arch_all, source,
-                    "~bpo70")
+                    "~bpo80")
                 if changes_file is not None:
                     deb_sign(changes_file)
                     deb_test(changes_file, chroot, args.test)
