@@ -179,33 +179,26 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
     return changes_file
 
 
-def rpm_build(tmp_dir, dsc_path, chroot_name,
+def rpm_build(tmp_dir, dsc_path, spec_path, chroot_name,
               distribution, architecture, arch_all, source):
+
+    if spec_path is None:
+        return None
+
     d = deb822.Dsc(open(dsc_path))
 
-    src_dir = os.path.dirname(dsc_path)
-    dsc_file = os.path.basename(dsc_path)
-
-    src_path = dsc_path
-    dst_path = os.path.join(tmp_dir, dsc_file)
-    shutil.copyfile(src_path, dst_path)
+    dsc_dir = os.path.dirname(dsc_path)
 
     orig_name = None
     orig_path = None
 
     for f in d['files']:
-        src_path = os.path.join(src_dir, f['name'])
-        dst_path = os.path.join(tmp_dir, f['name'])
-        shutil.copyfile(src_path, dst_path)
-
         if f['name'].endswith('.orig.tar.gz'):
             orig_name = f['name']
-            orig_path = src_path
+            orig_path = os.path.join(dsc_dir, orig_name)
 
     assert orig_name is not None
     assert orig_path is not None
-
-    build_dir = os.path.join(tmp_dir, "BUILD")
 
     dst_dir = os.path.join(tmp_dir, "SOURCES")
     dst_name = orig_name.replace('.orig.tar.gz', '.tar.gz')
@@ -215,39 +208,23 @@ def rpm_build(tmp_dir, dsc_path, chroot_name,
         os.mkdir(dst_dir)
 
     shutil.copyfile(orig_path, dst_path)
-
-    with chdir(tmp_dir):
-        check_call(["dpkg-source", "-x", dsc_file, build_dir])
+    os.chmod(dst_path, 0644)
 
     if source:
         source = "-ba"
     else:
         source = "-bb"
 
-    spec_dir = os.path.join(build_dir, "packaging")
-
-    if not os.path.isdir(spec_dir):
-        return False
-
     with schroot.schroot(chroot_name) as chroot:
-        for name in os.listdir(spec_dir):
-            if not name.endswith(".spec"):
-                continue
+        chroot.check_call([
+            "yum-builddep", "-y",
+            spec_path], user="root")
 
-            # FIXME! We shouldn't build arch independant packages if arch_all
-            # is False.
-
-            spec_file = os.path.join(spec_dir, name)
-
-            chroot.check_call([
-                "yum-builddep", "-y",
-                spec_file], user="root")
-
-            chroot.check_call([
-                "rpmbuild",
-                "--define", "_topdir "+tmp_dir,
-                source,
-                spec_file])
+        chroot.check_call([
+            "rpmbuild",
+            "--define", "_topdir "+tmp_dir,
+            source,
+            spec_path])
 
     return True
 
@@ -301,6 +278,26 @@ def deb_upload(server, delayed, changes_file):
         check_call(["dput", server, changes_file])
 
 
+def rpm_lint(tmp_dir, chroot):
+    rpms = []
+
+    src_dir = os.path.join(tmp_dir, "SRPMS")
+    for name in os.listdir(src_dir):
+        rpms.append(os.path.join(src_dir, name))
+
+    src_dir = os.path.join(tmp_dir, "RPMS")
+    for name in os.listdir(src_dir):
+        src_dir_2 = os.path.join(src_dir, name)
+        for name_2 in os.listdir(src_dir_2):
+            rpms.append(os.path.join(src_dir_2, name_2))
+
+    with schroot.schroot(chroot) as chroot:
+        chroot.check_call(
+            ["yum", "install", "--assumeyes", "--", "rpmlint"],
+            user="root")
+        chroot.check_call(["rpmlint"] + rpms)
+
+
 def rpm_test(tmp_dir, chroot, test_mode):
     if test_mode == "none":
         return
@@ -322,7 +319,8 @@ def rpm_test(tmp_dir, chroot, test_mode):
         if test_mode == "auto":
             pass
         elif test_mode == "manual":
-            chroot.check_call(["bash"], user="root")
+            with chdir(tmp_dir):
+                chroot.check_call(["bash"], user="root")
         else:
             raise RuntimeError("Unknown test mode %s" % test_mode)
 
@@ -386,6 +384,11 @@ def main():
         help="Act on tree in working directory.")
 
     parser.add_argument(
+        "--spec",
+        dest="spec_path",
+        help="RPM Spec File")
+
+    parser.add_argument(
         "--upload",
         choices=['vpac', 'internal', 'debian', 'pypi'],
         action="append",
@@ -431,6 +434,10 @@ def main():
         dsc_file = deb_build_src(args.working_dir)
     else:
         dsc_file = args.dsc_file
+
+    spec_path = None
+    if args.spec_path:
+        spec_path = args.spec_path
 
     distributions = set(args.distributions)
     if len(distributions) == 0:
@@ -500,6 +507,7 @@ def main():
                     "~bpo80")
                 if changes_file is not None:
                     deb_sign(changes_file)
+                    # deb_lint(changes_file, chroot)
                     deb_test(changes_file, chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
@@ -516,6 +524,7 @@ def main():
                     "~bpo70")
                 if changes_file is not None:
                     deb_sign(changes_file)
+                    # deb_lint(changes_file, chroot)
                     deb_test(changes_file, chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
@@ -532,6 +541,7 @@ def main():
                     "~bpo60")
                 if changes_file is not None:
                     deb_sign(changes_file)
+                    # deb_lint(changes_file, chroot)
                     deb_test(changes_file, chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
@@ -543,9 +553,10 @@ def main():
             chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file, chroot,
+                    tmp_dir, dsc_file, spec_path, chroot,
                     distribution, architecture, arch_all, source)
                 if rc:
+                    rpm_lint(tmp_dir, chroot)
                     rpm_test(tmp_dir, chroot, args.test)
                     if 'vpac' in args.upload:
                         rpm_upload(
@@ -557,9 +568,10 @@ def main():
             chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file, chroot,
+                    tmp_dir, dsc_file, spec_path, chroot,
                     distribution, architecture, arch_all, source)
                 if rc:
+                    # rpm_lint(tmp_dir, chroot)
                     rpm_test(tmp_dir, chroot, args.test)
                     if 'vpac' in args.upload:
                         rpm_upload(
@@ -571,9 +583,10 @@ def main():
             chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file, chroot,
+                    tmp_dir, dsc_file, spec_path, chroot,
                     distribution, architecture, arch_all, source)
                 if rc:
+                    rpm_lint(tmp_dir, chroot)
                     rpm_test(tmp_dir, chroot, args.test)
                     if 'vpac' in args.upload:
                         rpm_upload(
