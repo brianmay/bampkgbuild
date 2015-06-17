@@ -36,49 +36,21 @@ else
     exit 1
 fi
 
-case "$(hostname --short)" in
-falidae)
-	VG="falidae"
-	LV="schroot-$SUITE-$ARCH"
-
-	DIR="/mnt"
-	UMOUNT="yes"
-	MIRROR="http://proxy.pri:9999/$DIST"
-
-	lvcreate -L2G -n "$LV" "$VG"
-	mkfs.ext4 "/dev/$VG/$LV"
-	mount "/dev/$VG/$LV" "$DIR"
-	;;
-
-aquitard)
-	VG="aquitard"
-	LV="schroot-$SUITE-$ARCH"
-
-	DIR="/mnt"
-	UMOUNT="yes"
-	MIRROR="http://hq.in.vpac.org:9999/$DIST"
-
-	lvcreate -L2G -n "$LV" "$VG"
-	mkfs.ext4 "/dev/$VG/$LV"
-	mount "/dev/$VG/$LV" "$DIR"
-	;;
-
-merlock)
-	DIR="/srv/chroot/$SUITE-$ARCH"
-	UMOUNT=""
-	MIRROR="http://proxy.pri:9999/$DIST"
-	;;
-
-*)
-	DIR="/srv/chroot/$SUITE-$ARCH"
-	UMOUNT=""
-	MIRROR="http://ftp.au.debian.org/$DIST"
-	;;
-esac
+DIR="/srv/chroot/$SUITE-$ARCH"
+UMOUNT=""
+MIRROR="http://httpredir.debian.org/$DIST"
 
 debootstrap --arch="$ARCH" "$SUITE" "$DIR" "$MIRROR"
+
 echo 'APT::Install-Recommends "false";' > "$DIR"/etc/apt/apt.conf
 chmod 644 "$DIR"/etc/apt/apt.conf
+
+echo 'deb     http://code.vpac.org/debian  jessie main' > "$DIR"/etc/apt/sources.list.d/vpac.list
+echo 'deb-src http://code.vpac.org/debian  jessie main' >> "$DIR"/etc/apt/sources.list.d/vpac.list
+chmod 644 "$DIR"/etc/apt/sources.list.d/vpac.list
+
+wget http://code.vpac.org/debian/vpac-debian-key.gpg -O - | chroot "$DIR" apt-key add -
+
 chroot "$DIR" apt-get update
 chroot "$DIR" apt-get upgrade
 chroot "$DIR" apt-get --yes install locales eatmydata
@@ -86,5 +58,5 @@ chroot "$DIR" apt-get --yes install build-essential devscripts fakeroot zsh
 
 if [ -n "$UMOUNT" ]
 then
-	umount "$DIR"
+    umount "$DIR"
 fi
