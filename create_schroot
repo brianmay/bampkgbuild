@@ -38,18 +38,19 @@ fi
 
 DIR="/srv/chroot/$SUITE-$ARCH"
 UMOUNT=""
-MIRROR="http://httpredir.debian.org/$DIST"
+MIRROR="http://localhost:9999/$DIST"
 
 debootstrap --arch="$ARCH" "$SUITE" "$DIR" "$MIRROR"
+chroot "$DIR" apt-get --yes install apt-transport-https
 
 echo 'APT::Install-Recommends "false";' > "$DIR"/etc/apt/apt.conf
 chmod 644 "$DIR"/etc/apt/apt.conf
 
-echo 'deb     http://code.vpac.org/debian  jessie main' > "$DIR"/etc/apt/sources.list.d/vpac.list
-echo 'deb-src http://code.vpac.org/debian  jessie main' >> "$DIR"/etc/apt/sources.list.d/vpac.list
-chmod 644 "$DIR"/etc/apt/sources.list.d/vpac.list
+echo "deb     http://localhost:9999/linuxpenguins $SUITE main" > "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
+echo "deb-src http://localhost:9999/linuxpenguins $SUITE main" >> "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
+chmod 644 "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
 
-wget http://code.vpac.org/debian/vpac-debian-key.gpg -O - | chroot "$DIR" apt-key add -
+wget https://linuxpenguins.xyz/debian/linuxpenguins.gpg.key -O- | chroot "$DIR" apt-key  add -
 
 chroot "$DIR" apt-get update
 chroot "$DIR" apt-get upgrade
