@@ -84,24 +84,24 @@ def deb_build_src(src_dir):
     return dsc_file
 
 
-def deb_build(tmp_dir, dsc_path, chroot_name,
-              distribution, architecture, arch_all, source,
-              add_to_version):
-    d = deb822.Dsc(open(dsc_path))
+def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
 
     src_dir = os.path.dirname(dsc_path)
+    dst_dir = tmp_dir
     dsc_file = os.path.basename(dsc_path)
 
+    d = deb822.Dsc(open(dsc_path))
+
     src_path = dsc_path
-    dst_path = os.path.join(tmp_dir, dsc_file)
+    dst_path = os.path.join(dst_dir, dsc_file)
     shutil.copyfile(src_path, dst_path)
 
     for f in d['files']:
         src_path = os.path.join(src_dir, f['name'])
-        dst_path = os.path.join(tmp_dir, f['name'])
+        dst_path = os.path.join(dst_dir, f['name'])
         shutil.copyfile(src_path, dst_path)
 
-    build_dir = os.path.join(tmp_dir, "deb_build")
+    build_dir = os.path.join(tmp_dir, "source")
 
     if add_to_version is not None:
         with chdir(tmp_dir):
@@ -140,10 +140,36 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
         with chdir(tmp_dir):
             check_call([
                 "dpkg-source",
-                "-b", "deb_build"])
+                "-b", "source"])
 
         dsc_file = "%s_%s.dsc" % (cl.package, cl.version)
         dsc_path = os.path.join(tmp_dir, dsc_file)
+
+    return dsc_path
+
+
+def deb_build(tmp_dir, dsc_path, chroot_name,
+              distribution, architecture, arch_all, source):
+    True
+#    src_dir = os.path.dirname(dsc_path)
+
+    dst_dir = os.path.join(tmp_dir, "build", architecture)
+    # dsc_file = os.path.basename(dsc_path)
+    dsc_path = os.path.abspath(dsc_path)
+
+#    d = deb822.Dsc(open(dsc_path))
+
+#    src_path = dsc_path
+#    dst_path = os.path.join(dst_dir, dsc_file)
+#    shutil.copyfile(src_path, dst_path)
+
+#    for f in d['files']:
+#        src_path = os.path.join(src_dir, f['name'])
+#        dst_path = os.path.join(dst_dir, f['name'])
+#        shutil.copyfile(src_path, dst_path)
+
+    if not os.path.isdir(dst_dir):
+        os.makedirs(dst_dir)
 
     if arch_all:
         arch_all = "--arch-all"
@@ -155,7 +181,7 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
     else:
         source = "--no-source"
 
-    with chdir(tmp_dir):
+    with chdir(dst_dir):
         check_call([
             "sbuild",
             arch_all, source,
@@ -164,14 +190,14 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
             "--host", architecture,
             "--chroot", chroot_name,
             "--force-orig-source",
-            dsc_file])
+            dsc_path])
 
     changes_file = None
-    for name in os.listdir(tmp_dir):
+    for name in os.listdir(dst_dir):
         if name.endswith(".changes"):
             if changes_file is not None:
                 raise RuntimeError("Found more then one .changes files")
-            changes_file = os.path.join(tmp_dir, name)
+            changes_file = os.path.join(dst_dir, name)
 
     if changes_file is None:
         return None
@@ -337,7 +363,7 @@ def rpm_upload(tmp_dir, dst_path):
 
 def pypi_upload(tmp_dir, dsc_path):
     dsc_path = os.path.abspath(dsc_path)
-    build_dir = os.path.join(tmp_dir, "deb_build")
+    build_dir = os.path.join(tmp_dir, "source")
 
     os.chdir(tmp_dir)
     check_call(["dpkg-source", "-x", dsc_path, build_dir])
@@ -376,7 +402,7 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--dsc",
-        dest="dsc_file",
+        dest="dsc_path",
         help="Act on dsc file.")
     group.add_argument(
         "--working",
@@ -390,7 +416,7 @@ def main():
 
     parser.add_argument(
         "--upload",
-        choices=['vpac', 'internal', 'debian', 'pypi'],
+        choices=['vpac', 'internal', 'linuxpenguins', 'debian', 'pypi'],
         action="append",
         default=[],
         help="upload destinations")
@@ -431,9 +457,9 @@ def main():
             raise RuntimeError("internal and %s conflict." % value)
 
     if args.working_dir:
-        dsc_file = deb_build_src(args.working_dir)
+        dsc_path = deb_build_src(args.working_dir)
     else:
-        dsc_file = args.dsc_file
+        dsc_path = args.dsc_path
 
     spec_path = None
     if args.spec_path:
@@ -450,6 +476,9 @@ def main():
             distributions.add("centos6")
             distributions.add("centos7")
             distributions.add("fedora20")
+        if 'linuxpenguins' in args.upload:
+            distributions.add("sid")
+            distributions.add("jessie")
 
     architectures = set(args.architectures)
     if len(architectures) == 0:
@@ -457,16 +486,17 @@ def main():
 
     arch_all = True
     source = True
-    for architecture in architectures:
 
-        if 'experimental' in distributions:
-            distribution = "experimental"
-            chroot = "sid-%s" % (architecture,)
-            with temp_dir() as tmp_dir:
+    if 'experimental' in distributions:
+        distribution = "experimental"
+        with temp_dir() as tmp_dir:
+            tmp_dsc_path = deb_update_source(
+                tmp_dir, dsc_path, distribution, None)
+            for architecture in architectures:
+                chroot = "sid-%s" % (architecture,)
                 changes_file = deb_build(
-                    tmp_dir, dsc_file, chroot,
-                    distribution, architecture, arch_all, source,
-                    None)
+                    tmp_dir, tmp_dsc_path, chroot,
+                    distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     deb_lint(changes_file, chroot)
@@ -477,15 +507,19 @@ def main():
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
                         deb_upload("internal", 0, changes_file)
+                    if 'linuxpenguins' in args.upload:
+                        deb_upload("linuxpenguins", 0, changes_file)
 
-        if 'sid' in distributions:
-            distribution = "unstable"
-            chroot = "sid-%s" % (architecture,)
-            with temp_dir() as tmp_dir:
+    if 'sid' in distributions:
+        distribution = "unstable"
+        with temp_dir() as tmp_dir:
+            tmp_dsc_path = deb_update_source(
+                tmp_dir, dsc_path, distribution, None)
+            for architecture in architectures:
+                chroot = "sid-%s" % (architecture,)
                 changes_file = deb_build(
-                    tmp_dir, dsc_file, chroot,
-                    distribution, architecture, arch_all, source,
-                    None)
+                    tmp_dir, tmp_dsc_path, chroot,
+                    distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     deb_lint(changes_file, chroot)
@@ -496,15 +530,19 @@ def main():
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
                         deb_upload("internal", 0, changes_file)
+                    if 'linuxpenguins' in args.upload:
+                        deb_upload("linuxpenguins", 0, changes_file)
 
-        if 'jessie' in distributions:
-            distribution = "jessie"
-            chroot = "%s-%s" % (distribution, architecture)
-            with temp_dir() as tmp_dir:
+    if 'jessie' in distributions:
+        distribution = "jessie"
+        with temp_dir() as tmp_dir:
+            tmp_dsc_path = deb_update_source(
+                tmp_dir, dsc_path, distribution, "~bpo80")
+            for architecture in architectures:
+                chroot = "%s-%s" % (distribution, architecture)
                 changes_file = deb_build(
-                    tmp_dir, dsc_file, chroot,
-                    distribution, architecture, arch_all, source,
-                    "~bpo80")
+                    tmp_dir, tmp_dsc_path, chroot,
+                    distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     # deb_lint(changes_file, chroot)
@@ -513,15 +551,19 @@ def main():
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
                         deb_upload("internal", 0, changes_file)
+                    if 'linuxpenguins' in args.upload:
+                        deb_upload("linuxpenguins", 0, changes_file)
 
-        if 'wheezy' in distributions:
-            distribution = "wheezy"
-            chroot = "%s-%s" % (distribution, architecture)
-            with temp_dir() as tmp_dir:
+    if 'wheezy' in distributions:
+        distribution = "wheezy"
+        with temp_dir() as tmp_dir:
+            tmp_dsc_path = deb_update_source(
+                tmp_dir, dsc_path, distribution, "~bpo70")
+            for architecture in architectures:
+                chroot = "%s-%s" % (distribution, architecture)
                 changes_file = deb_build(
-                    tmp_dir, dsc_file, chroot,
-                    distribution, architecture, arch_all, source,
-                    "~bpo70")
+                    tmp_dir, tmp_dsc_path, chroot,
+                    distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     # deb_lint(changes_file, chroot)
@@ -530,15 +572,19 @@ def main():
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
                         deb_upload("internal", 0, changes_file)
+                    if 'linuxpenguins' in args.upload:
+                        deb_upload("linuxpenguins", 0, changes_file)
 
-        if 'squeeze' in distributions:
-            distribution = "squeeze"
-            chroot = "%s-%s" % (distribution, architecture)
-            with temp_dir() as tmp_dir:
+    if 'squeeze' in distributions:
+        distribution = "squeeze"
+        with temp_dir() as tmp_dir:
+            tmp_dsc_path = deb_update_source(
+                tmp_dir, dsc_path, distribution, "~bpo60")
+            for architecture in architectures:
+                chroot = "%s-%s" % (distribution, architecture)
                 changes_file = deb_build(
-                    tmp_dir, dsc_file, chroot,
-                    distribution, architecture, arch_all, source,
-                    "~bpo60")
+                    tmp_dir, tmp_dsc_path, chroot,
+                    distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     # deb_lint(changes_file, chroot)
@@ -547,13 +593,16 @@ def main():
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
                         deb_upload("internal", 0, changes_file)
+                    if 'linuxpenguins' in args.upload:
+                        deb_upload("linuxpenguins", 0, changes_file)
 
-        if 'fedora20' in distributions:
-            distribution = "fedora20"
+    if 'fedora20' in distributions:
+        distribution = "fedora20"
+        for architecture in architectures:
             chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file, spec_path, chroot,
+                    tmp_dir, dsc_path, spec_path, chroot,
                     distribution, architecture, arch_all, source)
                 if rc:
                     rpm_lint(tmp_dir, chroot)
@@ -563,12 +612,13 @@ def main():
                             tmp_dir,
                             "root@code.vpac.org:/var/www/fedora/20/incoming")
 
-        if 'centos6' in distributions:
-            distribution = "centos6"
+    if 'centos6' in distributions:
+        distribution = "centos6"
+        for architecture in architectures:
             chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file, spec_path, chroot,
+                    tmp_dir, dsc_path, spec_path, chroot,
                     distribution, architecture, arch_all, source)
                 if rc:
                     # rpm_lint(tmp_dir, chroot)
@@ -578,12 +628,13 @@ def main():
                             tmp_dir,
                             "root@code.vpac.org:/var/www/centos/6/incoming")
 
-        if 'centos7' in distributions:
-            distribution = "centos7"
+    if 'centos7' in distributions:
+        distribution = "centos7"
+        for architecture in architectures:
             chroot = "%s-%s" % (distribution, architecture)
             with temp_dir() as tmp_dir:
                 rc = rpm_build(
-                    tmp_dir, dsc_file, spec_path, chroot,
+                    tmp_dir, dsc_path, spec_path, chroot,
                     distribution, architecture, arch_all, source)
                 if rc:
                     rpm_lint(tmp_dir, chroot)
@@ -598,7 +649,7 @@ def main():
 
     if 'pypi' in args.upload:
         with temp_dir() as tmp_dir:
-            pypi_upload(tmp_dir, dsc_file)
+            pypi_upload(tmp_dir, dsc_path)
 
 if __name__ == "__main__":
     main()
