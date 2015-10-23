@@ -46,6 +46,9 @@ chroot "$DIR" apt-get --yes install apt-transport-https
 echo 'APT::Install-Recommends "false";' > "$DIR"/etc/apt/apt.conf
 chmod 644 "$DIR"/etc/apt/apt.conf
 
+echo "deb     http://localhost:9999/debian $SUITE main" > "$DIR"/etc/apt/sources.list
+echo "deb-src http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/sources.list
+
 echo "deb     http://localhost:9999/linuxpenguins $SUITE main" > "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
 echo "deb-src http://localhost:9999/linuxpenguins $SUITE main" >> "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
 chmod 644 "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
