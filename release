@@ -298,6 +298,28 @@ def deb_test(changes_file, chroot, test_mode):
 
 
 def deb_upload(server, delayed, changes_file):
+    with open(changes_file) as f:
+        changes = deb822.Changes(f)
+
+    unparsed = changes.get_as_string('Changes')
+    parsed = []
+    for line in unparsed.split("\n"):
+        if line == "":
+            continue
+        elif line == " .":
+            line = ""
+        elif line[0] == " ":
+            line = line[1:]
+        else:
+            assert False
+        parsed.append(line)
+
+    top_match = changelog.topline.match(parsed[0])
+    distributions = top_match.group(3).lstrip()
+
+    assert distributions == changes['Distribution']
+    assert distributions in ['unstable', 'experimental', 'jessie']
+
     if delayed > 0:
         check_call(["dput", "--delayed=%d" % delayed, server, changes_file])
     else:
