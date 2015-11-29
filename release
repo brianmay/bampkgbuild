@@ -515,7 +515,7 @@ def main():
             tmp_dsc_path = deb_update_source(
                 tmp_dir, dsc_path, distribution, None)
             for architecture in architectures:
-                chroot = "sid-%s" % (architecture,)
+                chroot = "experimental-%s" % (architecture,)
                 changes_file = deb_build(
                     tmp_dir, tmp_dsc_path, chroot,
                     distribution, architecture, arch_all, source)
