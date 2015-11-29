@@ -39,6 +39,12 @@ fi
 DIR="/srv/chroot/$SUITE-$ARCH"
 UMOUNT=""
 MIRROR="http://localhost:9999/$DIST"
+EXPERIMENTAL=""
+
+if [ "$SUITE" = "experimental" ]; then
+    SUITE="sid"
+    EXPERIMENTAL=1
+fi
 
 debootstrap --arch="$ARCH" "$SUITE" "$DIR" "$MIRROR"
 chroot "$DIR" apt-get --yes install apt-transport-https
@@ -46,8 +52,17 @@ chroot "$DIR" apt-get --yes install apt-transport-https
 echo 'APT::Install-Recommends "false";' > "$DIR"/etc/apt/apt.conf
 chmod 644 "$DIR"/etc/apt/apt.conf
 
-echo "deb     http://localhost:9999/debian $SUITE main" > "$DIR"/etc/apt/sources.list
+echo -n > "$DIR"/etc/apt/sources.list
+
+echo "deb     http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/sources.list
 echo "deb-src http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/sources.list
+
+if [ -n "$EXPERIMENTAL" ]; then
+    echo "Package: *\nPin: release a=$SUITE\nPin-Priority:600\n" > "$DIR"/etc/apt/preferences.d/experimental.pref
+    echo "Package: python3* libpython3*\nPin: release a=experimental\nPin-Priority:500\n" >> "$DIR"/etc/apt/preferences.d/experimental.pref
+    echo "deb     http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
+    echo "deb-src http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
+fi
 
 echo "deb     http://localhost:9999/linuxpenguins $SUITE main" > "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
 echo "deb-src http://localhost:9999/linuxpenguins $SUITE main" >> "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
