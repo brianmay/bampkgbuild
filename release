@@ -318,7 +318,8 @@ def deb_upload(server, delayed, changes_file):
     distributions = top_match.group(3).lstrip()
 
     assert distributions == changes['Distribution']
-    assert distributions in ['unstable', 'experimental', 'jessie']
+    assert distributions in ['unstable', 'experimental',
+                             'jessie', 'squeeze-lts']
 
     if delayed > 0:
         check_call(["dput", "--delayed=%d" % delayed, server, changes_file])
@@ -445,7 +446,7 @@ def main():
 
     parser.add_argument(
         "--distributions",
-        choices=['squeeze', 'wheezy', 'jessie', 'sid', 'experimental',
+        choices=['squeeze-lts', 'wheezy', 'jessie', 'sid', 'experimental',
                  'fedora20', 'centos6', 'centos7'],
         action="append",
         default=[],
@@ -597,20 +598,23 @@ def main():
                     if 'linuxpenguins' in args.upload:
                         deb_upload("linuxpenguins", 0, changes_file)
 
-    if 'squeeze' in distributions:
-        distribution = "squeeze"
+    if 'squeeze-lts' in distributions:
+        distribution = "squeeze-lts"
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_update_source(
-                tmp_dir, dsc_path, distribution, "~bpo60")
+                tmp_dir, dsc_path, distribution, None)
             for architecture in architectures:
-                chroot = "%s-%s" % (distribution, architecture)
+                build_chroot = "%s-%s-sbuild" % ("squeeze", architecture)
+                test_chroot = "%s-%s-default" % ("squeeze", architecture)
                 changes_file = deb_build(
-                    tmp_dir, tmp_dsc_path, chroot,
+                    tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     # deb_lint(changes_file, chroot)
-                    deb_test(changes_file, chroot, args.test)
+                    deb_test(changes_file, test_chroot, args.test)
+                    if 'debian' in args.upload and source:
+                        deb_upload("ftp-master", args.delayed, changes_file)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
