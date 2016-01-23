@@ -58,8 +58,7 @@ echo "deb     http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/source
 echo "deb-src http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/sources.list
 
 if [ -n "$EXPERIMENTAL" ]; then
-    echo "Package: *\nPin: release a=$SUITE\nPin-Priority:600\n" > "$DIR"/etc/apt/preferences.d/experimental.pref
-    echo "Package: python3* libpython3*\nPin: release a=experimental\nPin-Priority:500\n" >> "$DIR"/etc/apt/preferences.d/experimental.pref
+    echo "Package: python3* libpython3* python*\nPin: release a=experimental\nPin-Priority:600\n" >> "$DIR"/etc/apt/preferences.d/experimental.pref
     echo "deb     http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
     echo "deb-src http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
 fi
