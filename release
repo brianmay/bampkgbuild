@@ -168,8 +168,7 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
 #        dst_path = os.path.join(dst_dir, f['name'])
 #        shutil.copyfile(src_path, dst_path)
 
-    if not os.path.isdir(dst_dir):
-        os.makedirs(dst_dir)
+    os.makedirs(dst_dir)
 
     if arch_all:
         arch_all = "--arch-all"
@@ -191,6 +190,31 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
             "--chroot", chroot_name,
             "--force-orig-source",
             dsc_path])
+
+    changes_file = None
+    for name in os.listdir(dst_dir):
+        if name.endswith(".changes"):
+            if changes_file is not None:
+                raise RuntimeError("Found more then one .changes files")
+            changes_file = os.path.join(dst_dir, name)
+
+    if changes_file is None:
+        return None
+
+    return changes_file
+
+
+def deb_build_source_only(tmp_dir, dsc_path):
+    dst_dir = os.path.join(tmp_dir, "build", "source-upload")
+    dsc_path = os.path.abspath(dsc_path)
+    build_dir = os.path.join(dst_dir, "source")
+
+    os.makedirs(dst_dir)
+    with chdir(dst_dir):
+        check_call(["dpkg-source", "-x", dsc_path, build_dir])
+
+    with chdir(build_dir):
+        check_call(["dpkg-buildpackage", "-nc", "-d", "-S", "-uc", "-us"])
 
     changes_file = None
     for name in os.listdir(dst_dir):
@@ -295,6 +319,21 @@ def deb_test(changes_file, chroot, test_mode):
                 chroot.check_call(["bash"], user="root")
         else:
             raise RuntimeError("Unknown test mode %s" % test_mode)
+
+
+def deb_test_source_only(changes_file, test_mode):
+    if test_mode == "none":
+        return
+
+    build_dir = os.path.dirname(changes_file)
+
+    if test_mode == "auto":
+        pass
+    elif test_mode == "manual":
+        with chdir(build_dir):
+            check_call(["bash"])
+    else:
+        raise RuntimeError("Unknown test mode %s" % test_mode)
 
 
 def deb_upload(server, delayed, changes_file):
@@ -515,16 +554,15 @@ def main():
             tmp_dsc_path = deb_update_source(
                 tmp_dir, dsc_path, distribution, None)
             for architecture in architectures:
-                chroot = "experimental-%s" % (architecture,)
+                build_chroot = "experimental-%s" % (architecture,)
+                test_chroot = "experimental-%s" % (architecture,)
                 changes_file = deb_build(
-                    tmp_dir, tmp_dsc_path, chroot,
+                    tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
-                    deb_lint(changes_file, chroot)
-                    deb_test(changes_file, chroot, args.test)
-                    if 'debian' in args.upload and source:
-                        deb_upload("ftp-master", args.delayed, changes_file)
+                    deb_lint(changes_file, test_chroot)
+                    deb_test(changes_file, test_chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
@@ -533,6 +571,13 @@ def main():
                         deb_upload("linuxpenguins", 0, changes_file)
                 arch_all = False
                 source = False
+
+            if 'debian' in args.upload:
+                changes_file = deb_build_source_only(tmp_dir, tmp_dsc_path)
+                if changes_file is not None:
+                    deb_sign(changes_file)
+                    deb_test_source_only(changes_file, args.test)
+                    deb_upload("ftp-master", args.delayed, changes_file)
 
     if 'sid' in distributions:
         arch_all = True
@@ -542,15 +587,16 @@ def main():
             tmp_dsc_path = deb_update_source(
                 tmp_dir, dsc_path, distribution, None)
             for architecture in architectures:
-                chroot = "sid-%s" % (architecture,)
+                build_chroot = "sid-%s" % (architecture,)
+                test_chroot = "sid-%s" % (architecture,)
                 changes_file = deb_build(
-                    tmp_dir, tmp_dsc_path, chroot,
+                    tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
-                    deb_lint(changes_file, chroot)
-                    deb_test(changes_file, chroot, args.test)
-                    if 'debian' in args.upload and source:
+                    deb_lint(changes_file, test_chroot)
+                    deb_test(changes_file, test_chroot, args.test)
+                    if 'debian' in args.upload:
                         deb_upload("ftp-master", args.delayed, changes_file)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
@@ -561,6 +607,13 @@ def main():
                 arch_all = False
                 source = False
 
+            if 'debian' in args.upload:
+                changes_file = deb_build_source_only(tmp_dir, tmp_dsc_path)
+                if changes_file is not None:
+                    deb_sign(changes_file)
+                    deb_test_source_only(changes_file, args.test)
+                    deb_upload("ftp-master", args.delayed, changes_file)
+
     if 'jessie' in distributions:
         arch_all = True
         source = True
@@ -569,14 +622,15 @@ def main():
             tmp_dsc_path = deb_update_source(
                 tmp_dir, dsc_path, distribution, "~bpo80")
             for architecture in architectures:
-                chroot = "%s-%s" % (distribution, architecture)
+                build_chroot = "%s-%s" % (distribution, architecture)
+                test_chroot = "%s-%s" % (distribution, architecture)
                 changes_file = deb_build(
-                    tmp_dir, tmp_dsc_path, chroot,
+                    tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     # deb_lint(changes_file, chroot)
-                    deb_test(changes_file, chroot, args.test)
+                    deb_test(changes_file, test_chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
@@ -594,14 +648,15 @@ def main():
             tmp_dsc_path = deb_update_source(
                 tmp_dir, dsc_path, distribution, "~bpo70")
             for architecture in architectures:
-                chroot = "%s-%s" % (distribution, architecture)
+                build_chroot = "%s-%s" % (distribution, architecture)
+                test_chroot = "%s-%s" % (distribution, architecture)
                 changes_file = deb_build(
-                    tmp_dir, tmp_dsc_path, chroot,
+                    tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     # deb_lint(changes_file, chroot)
-                    deb_test(changes_file, chroot, args.test)
+                    deb_test(changes_file, test_chroot, args.test)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
@@ -628,8 +683,6 @@ def main():
                     deb_sign(changes_file)
                     # deb_lint(changes_file, chroot)
                     deb_test(changes_file, test_chroot, args.test)
-                    if 'debian' in args.upload and source:
-                        deb_upload("ftp-master", args.delayed, changes_file)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
@@ -638,6 +691,13 @@ def main():
                         deb_upload("linuxpenguins", 0, changes_file)
                 arch_all = False
                 source = False
+
+            if 'debian' in args.upload:
+                changes_file = deb_build_source_only(tmp_dir, tmp_dsc_path)
+                if changes_file is not None:
+                    deb_sign(changes_file)
+                    deb_test_source_only(changes_file, args.test)
+                # deb_upload("ftp-master", args.delayed, changes_file)
 
     if 'fedora20' in distributions:
         arch_all = True
