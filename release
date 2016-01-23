@@ -507,10 +507,9 @@ def main():
     if len(architectures) == 0:
         architectures = ['i386', 'amd64']
 
-    arch_all = True
-    source = True
-
     if 'experimental' in distributions:
+        arch_all = True
+        source = True
         distribution = "experimental"
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_update_source(
@@ -532,8 +531,12 @@ def main():
                         deb_upload("internal", 0, changes_file)
                     if 'linuxpenguins' in args.upload:
                         deb_upload("linuxpenguins", 0, changes_file)
+                arch_all = False
+                source = False
 
     if 'sid' in distributions:
+        arch_all = True
+        source = True
         distribution = "unstable"
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_update_source(
@@ -555,8 +558,12 @@ def main():
                         deb_upload("internal", 0, changes_file)
                     if 'linuxpenguins' in args.upload:
                         deb_upload("linuxpenguins", 0, changes_file)
+                arch_all = False
+                source = False
 
     if 'jessie' in distributions:
+        arch_all = True
+        source = True
         distribution = "jessie"
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_update_source(
@@ -576,8 +583,12 @@ def main():
                         deb_upload("internal", 0, changes_file)
                     if 'linuxpenguins' in args.upload:
                         deb_upload("linuxpenguins", 0, changes_file)
+                arch_all = False
+                source = False
 
     if 'wheezy' in distributions:
+        arch_all = True
+        source = True
         distribution = "wheezy"
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_update_source(
@@ -597,8 +608,12 @@ def main():
                         deb_upload("internal", 0, changes_file)
                     if 'linuxpenguins' in args.upload:
                         deb_upload("linuxpenguins", 0, changes_file)
+                arch_all = False
+                source = False
 
     if 'squeeze-lts' in distributions:
+        arch_all = True
+        source = True
         distribution = "squeeze-lts"
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_update_source(
@@ -621,8 +636,12 @@ def main():
                         deb_upload("internal", 0, changes_file)
                     if 'linuxpenguins' in args.upload:
                         deb_upload("linuxpenguins", 0, changes_file)
+                arch_all = False
+                source = False
 
     if 'fedora20' in distributions:
+        arch_all = True
+        source = True
         distribution = "fedora20"
         for architecture in architectures:
             chroot = "%s-%s" % (distribution, architecture)
@@ -637,8 +656,12 @@ def main():
                         rpm_upload(
                             tmp_dir,
                             "root@code.vpac.org:/var/www/fedora/20/incoming")
+                arch_all = False
+                source = False
 
     if 'centos6' in distributions:
+        arch_all = True
+        source = True
         distribution = "centos6"
         for architecture in architectures:
             chroot = "%s-%s" % (distribution, architecture)
@@ -653,8 +676,12 @@ def main():
                         rpm_upload(
                             tmp_dir,
                             "root@code.vpac.org:/var/www/centos/6/incoming")
+                arch_all = False
+                source = False
 
     if 'centos7' in distributions:
+        arch_all = True
+        source = True
         distribution = "centos7"
         for architecture in architectures:
             chroot = "%s-%s" % (distribution, architecture)
@@ -669,6 +696,8 @@ def main():
                         rpm_upload(
                             tmp_dir,
                             "root@code.vpac.org:/var/www/centos/7/incoming")
+                arch_all = False
+                source = False
 
         arch_all = False
         source = False
