@@ -234,7 +234,7 @@ def rpm_build(tmp_dir, dsc_path, spec_path, chroot_name,
         os.mkdir(dst_dir)
 
     shutil.copyfile(orig_path, dst_path)
-    os.chmod(dst_path, 0644)
+    os.chmod(dst_path, 0o644)
 
     if source:
         source = "-ba"
