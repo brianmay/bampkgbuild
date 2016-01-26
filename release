@@ -79,7 +79,9 @@ def deb_build_src(src_dir):
                 "dpkg-source",
                 "-b", src_name])
 
-    dsc_file = "%s_%s.dsc" % (cl.package, cl.version)
+    # remove epoch for filename
+    version = re.sub('^\d+:', '', str(cl.version), 1)
+    dsc_file = "%s_%s.dsc" % (cl.package, version)
     dsc_file = os.path.join(parent_dir, dsc_file)
     return dsc_file
 
