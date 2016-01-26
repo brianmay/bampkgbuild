@@ -206,7 +206,7 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
     return changes_file
 
 
-def deb_build_source_only(tmp_dir, dsc_path):
+def deb_build_source_only(tmp_dir, dsc_path, distribution):
     dst_dir = os.path.join(tmp_dir, "build", "source-upload")
     dsc_path = os.path.abspath(dsc_path)
     build_dir = os.path.join(dst_dir, "source")
@@ -216,7 +216,9 @@ def deb_build_source_only(tmp_dir, dsc_path):
         check_call(["dpkg-source", "-x", dsc_path, build_dir])
 
     with chdir(build_dir):
-        check_call(["dpkg-buildpackage", "-nc", "-d", "-S", "-uc", "-us"])
+        check_call(["dpkg-buildpackage",
+                    "-nc", "-d", "-S", "-uc", "-us",
+                    "--changes-option=-DDistribution=%s" % distribution])
 
     changes_file = None
     for name in os.listdir(dst_dir):
@@ -598,8 +600,6 @@ def main():
                     deb_sign(changes_file)
                     deb_lint(changes_file, test_chroot)
                     deb_test(changes_file, test_chroot, args.test)
-                    if 'debian' in args.upload:
-                        deb_upload("ftp-master", args.delayed, changes_file)
                     if 'vpac' in args.upload:
                         deb_upload("vpac", 0, changes_file)
                     if 'internal' in args.upload:
@@ -610,7 +610,8 @@ def main():
                 source = False
 
             if 'debian' in args.upload:
-                changes_file = deb_build_source_only(tmp_dir, tmp_dsc_path)
+                changes_file = deb_build_source_only(
+                    tmp_dir, tmp_dsc_path, distribution)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     deb_test_source_only(changes_file, args.test)
@@ -695,11 +696,12 @@ def main():
                 source = False
 
             if 'debian' in args.upload:
-                changes_file = deb_build_source_only(tmp_dir, tmp_dsc_path)
+                changes_file = deb_build_source_only(
+                    tmp_dir, tmp_dsc_path, distribution)
                 if changes_file is not None:
                     deb_sign(changes_file)
                     deb_test_source_only(changes_file, args.test)
-                # deb_upload("ftp-master", args.delayed, changes_file)
+                deb_upload("ftp-master", args.delayed, changes_file)
 
     if 'fedora20' in distributions:
         arch_all = True
