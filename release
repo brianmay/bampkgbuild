@@ -144,7 +144,8 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
                 "dpkg-source",
                 "-b", "source"])
 
-        dsc_file = "%s_%s.dsc" % (cl.package, cl.version)
+        version = re.sub('^\d+:', '', str(cl.version), 1)
+        dsc_file = "%s_%s.dsc" % (cl.package, version)
         dsc_path = os.path.join(tmp_dir, dsc_file)
 
     return dsc_path
