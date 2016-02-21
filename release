@@ -86,7 +86,7 @@ def deb_build_src(src_dir):
     return dsc_file
 
 
-def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
+def deb_copy_source(tmp_dir, dsc_path):
 
     src_dir = os.path.dirname(dsc_path)
     dst_dir = tmp_dir
@@ -103,6 +103,13 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
         dst_path = os.path.join(dst_dir, f['name'])
         shutil.copyfile(src_path, dst_path)
 
+    dsc_path = os.path.join(dst_dir, dsc_file)
+    return dsc_path
+
+
+def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
+
+    dsc_file = os.path.basename(dsc_path)
     build_dir = os.path.join(tmp_dir, "source")
 
     if add_to_version is not None:
@@ -556,8 +563,7 @@ def main():
         source = True
         distribution = "experimental"
         with temp_dir() as tmp_dir:
-            tmp_dsc_path = deb_update_source(
-                tmp_dir, dsc_path, distribution, None)
+            tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
             for architecture in architectures:
                 build_chroot = "experimental-%s" % (architecture,)
                 test_chroot = "experimental-%s" % (architecture,)
@@ -589,8 +595,7 @@ def main():
         source = True
         distribution = "unstable"
         with temp_dir() as tmp_dir:
-            tmp_dsc_path = deb_update_source(
-                tmp_dir, dsc_path, distribution, None)
+            tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
             for architecture in architectures:
                 build_chroot = "sid-%s" % (architecture,)
                 test_chroot = "sid-%s" % (architecture,)
@@ -623,8 +628,9 @@ def main():
         source = True
         distribution = "jessie"
         with temp_dir() as tmp_dir:
+            tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
             tmp_dsc_path = deb_update_source(
-                tmp_dir, dsc_path, distribution, "~bpo80")
+                tmp_dir, tmp_dsc_path, distribution, "~bpo80")
             for architecture in architectures:
                 build_chroot = "%s-%s" % (distribution, architecture)
                 test_chroot = "%s-%s" % (distribution, architecture)
@@ -649,8 +655,9 @@ def main():
         source = True
         distribution = "wheezy"
         with temp_dir() as tmp_dir:
+            tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
             tmp_dsc_path = deb_update_source(
-                tmp_dir, dsc_path, distribution, "~bpo70")
+                tmp_dir, tmp_dsc_path, distribution, "~bpo70")
             for architecture in architectures:
                 build_chroot = "%s-%s" % (distribution, architecture)
                 test_chroot = "%s-%s" % (distribution, architecture)
@@ -675,8 +682,7 @@ def main():
         source = True
         distribution = "squeeze-lts"
         with temp_dir() as tmp_dir:
-            tmp_dsc_path = deb_update_source(
-                tmp_dir, dsc_path, distribution, None)
+            tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
             for architecture in architectures:
                 build_chroot = "%s-%s-sbuild" % ("squeeze", architecture)
                 test_chroot = "%s-%s-default" % ("squeeze", architecture)
