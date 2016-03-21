@@ -37,7 +37,6 @@ else
 fi
 
 DIR="/srv/chroot/$SUITE-$ARCH"
-UMOUNT=""
 MIRROR="http://localhost:9999/$DIST"
 EXPERIMENTAL=""
 
@@ -46,35 +45,61 @@ if [ "$SUITE" = "experimental" ]; then
     EXPERIMENTAL=1
 fi
 
-debootstrap --arch="$ARCH" "$SUITE" "$DIR" "$MIRROR"
+rm -rf "$DIR"
+sbuild-createchroot --arch="$ARCH" "$SUITE" "$DIR" "$MIRROR"
 chroot "$DIR" apt-get --yes install apt-transport-https
+#
+#echo 'APT::Install-Recommends "false";' > "$DIR"/etc/apt/apt.conf
+#chmod 644 "$DIR"/etc/apt/apt.conf
+#
+#echo -n > "$DIR"/etc/apt/sources.list
 
-echo 'APT::Install-Recommends "false";' > "$DIR"/etc/apt/apt.conf
-chmod 644 "$DIR"/etc/apt/apt.conf
+#echo "deb     http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/sources.list
+#echo "deb-src http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/sources.list
 
-echo -n > "$DIR"/etc/apt/sources.list
+#if [ -n "$EXPERIMENTAL" ]; then
+#    echo "Package: python3* libpython3* python*\nPin: release a=experimental\nPin-Priority:600\n" >> "$DIR"/etc/apt/preferences.d/experimental.pref
+#    echo "deb     http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
+#    echo "deb-src http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
+#fi
 
-echo "deb     http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/sources.list
-echo "deb-src http://localhost:9999/debian $SUITE main" >> "$DIR"/etc/apt/sources.list
-
-if [ -n "$EXPERIMENTAL" ]; then
-    echo "Package: python3* libpython3* python*\nPin: release a=experimental\nPin-Priority:600\n" >> "$DIR"/etc/apt/preferences.d/experimental.pref
-    echo "deb     http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
-    echo "deb-src http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
-fi
-
-echo "deb     http://localhost:9999/linuxpenguins $SUITE main" > "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
-echo "deb-src http://localhost:9999/linuxpenguins $SUITE main" >> "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
-chmod 644 "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
+#echo "deb     http://localhost:9999/linuxpenguins $SUITE main" > "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
+#echo "deb-src http://localhost:9999/linuxpenguins $SUITE main" >> "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
+#chmod 644 "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
 
 wget https://linuxpenguins.xyz/debian/linuxpenguins.gpg.key -O- | chroot "$DIR" apt-key  add -
 
-chroot "$DIR" apt-get update
-chroot "$DIR" apt-get upgrade
-chroot "$DIR" apt-get --yes install locales eatmydata
-chroot "$DIR" apt-get --yes install build-essential devscripts fakeroot zsh
+#chroot "$DIR" apt-get update
+#chroot "$DIR" apt-get upgrade
+#chroot "$DIR" apt-get --yes install locales eatmydata
+#chroot "$DIR" apt-get --yes install build-essential devscripts fakeroot zsh
 
-if [ -n "$UMOUNT" ]
-then
-    umount "$DIR"
+rm "/etc/schroot/chroot.d/$SUITE-$ARCH-"*
+
+PERSONALITY=""
+if test "$ARCH" = "i386"; then
+    PERSONALITY="personality=linux32"
 fi
+
+cat << EOF > "/etc/schroot/chroot.d/$SUITE-$ARCH"
+[$SUITE-$ARCH-sbuild]
+type=directory
+description=Debian $SUITE/$ARCH autobuilder
+directory=/srv/chroot/$SUITE-$ARCH
+groups=root,sbuild
+root-groups=root,sbuild
+profile=sbuild
+union-type=overlay
+$PERSONALITY
+
+[$SUITE-$ARCH-default]
+type=directory
+description=Debian $SUITE/$ARCH autobuilder
+directory=/srv/chroot/$SUITE-$ARCH
+groups=root,sbuild
+root-groups=root,sbuild
+profile=default
+union-type=overlay
+$PERSONALITY
+EOF
+chmod 644 "/etc/schroot/chroot.d/$SUITE-$ARCH"

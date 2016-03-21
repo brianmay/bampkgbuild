@@ -194,6 +194,9 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
         check_call([
             "sbuild",
             arch_all, source,
+            "--extra-repository",
+            "deb http://localhost:9999/linuxpenguins %s main"
+            % ("sid" if distribution == "unstable" else distribution),
             "--dist", distribution,
             "--build", architecture,
             "--host", architecture,
@@ -500,7 +503,9 @@ def main():
 
     parser.add_argument(
         "--distributions",
-        choices=['squeeze-lts', 'wheezy', 'jessie', 'sid', 'experimental',
+        choices=['squeeze-lts', 'wheezy-security',
+                 'jessie', 'jessie-security',
+                 'sid', 'experimental',
                  'fedora20', 'centos6', 'centos7'],
         action="append",
         default=[],
@@ -568,8 +573,8 @@ def main():
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
             for architecture in architectures:
-                build_chroot = "experimental-%s" % (architecture,)
-                test_chroot = "experimental-%s" % (architecture,)
+                build_chroot = "experimental-%s-sbuild" % (architecture,)
+                test_chroot = "experimental-%s-default" % (architecture,)
                 changes_file = deb_build(
                     tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
@@ -600,8 +605,8 @@ def main():
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
             for architecture in architectures:
-                build_chroot = "sid-%s" % (architecture,)
-                test_chroot = "sid-%s" % (architecture,)
+                build_chroot = "sid-%s-sbuild" % (architecture,)
+                test_chroot = "sid-%s-default" % (architecture,)
                 changes_file = deb_build(
                     tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
@@ -635,8 +640,8 @@ def main():
             tmp_dsc_path = deb_update_source(
                 tmp_dir, tmp_dsc_path, distribution, "~bpo80")
             for architecture in architectures:
-                build_chroot = "%s-%s" % (distribution, architecture)
-                test_chroot = "%s-%s" % (distribution, architecture)
+                build_chroot = "%s-%s-sbuild" % (distribution, architecture)
+                test_chroot = "%s-%s-default" % (distribution, architecture)
                 changes_file = deb_build(
                     tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
@@ -653,17 +658,44 @@ def main():
                 arch_all = False
                 source = False
 
-    if 'wheezy' in distributions:
+    if 'jessie-security' in distributions:
         arch_all = True
         source = True
-        distribution = "wheezy"
+        distribution = "jessie"
         with temp_dir() as tmp_dir:
             tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
             tmp_dsc_path = deb_update_source(
-                tmp_dir, tmp_dsc_path, distribution, "~bpo70")
+                tmp_dir, tmp_dsc_path, distribution, None)
             for architecture in architectures:
-                build_chroot = "%s-%s" % (distribution, architecture)
-                test_chroot = "%s-%s" % (distribution, architecture)
+                build_chroot = "%s-%s-sbuild" % ("jessie", architecture)
+                test_chroot = "%s-%s-default" % ("jessie", architecture)
+                changes_file = deb_build(
+                    tmp_dir, tmp_dsc_path, build_chroot,
+                    distribution, architecture, arch_all, source)
+                if changes_file is not None:
+                    deb_sign(changes_file)
+                    # deb_lint(changes_file, chroot)
+                    deb_test(changes_file, test_chroot, args.test)
+                    if 'vpac' in args.upload:
+                        deb_upload("vpac", 0, changes_file)
+                    if 'internal' in args.upload:
+                        deb_upload("internal", 0, changes_file)
+                    if 'linuxpenguins' in args.upload:
+                        deb_upload("linuxpenguins", 0, changes_file)
+                arch_all = False
+                source = False
+
+    if 'wheezy-security' in distributions:
+        arch_all = True
+        source = True
+        distribution = "wheezy-security"
+        with temp_dir() as tmp_dir:
+            tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
+            tmp_dsc_path = deb_update_source(
+                tmp_dir, tmp_dsc_path, distribution, None)
+            for architecture in architectures:
+                build_chroot = "%s-%s-sbuild" % ("wheezy", architecture)
+                test_chroot = "%s-%s-default" % ("wheezy", architecture)
                 changes_file = deb_build(
                     tmp_dir, tmp_dsc_path, build_chroot,
                     distribution, architecture, arch_all, source)
