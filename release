@@ -298,7 +298,7 @@ def deb_sign(changes_file):
 def deb_lint(changes_file, chroot):
     with schroot.schroot(chroot) as chroot:
         chroot.check_call([
-            "apt-get", "--yes",
+            "apt-get", "--yes", "-oDpkg::Options::=--force-confold",
             "install", "lintian"], user="root")
 #        chroot.check_call([
 #            "apt-get", "--yes", "-t", "experimental",
@@ -322,7 +322,10 @@ def deb_test(changes_file, chroot, test_mode):
     with schroot.schroot(chroot) as chroot:
         chroot.check_call(["apt-get", "update"], user="root")
         chroot.check_call(["dpkg", "--unpack", "--"] + debs, user="root")
-        chroot.check_call(["apt-get", "--yes", "-f", "install"], user="root")
+        chroot.check_call(
+            ["apt-get", "--yes", "-f", "-oDpkg::Options::=--force-confold",
+                "install"],
+            user="root")
 
         if test_mode == "auto":
             pass
