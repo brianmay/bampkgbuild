@@ -517,6 +517,7 @@ def main():
         "--distributions",
         choices=['squeeze-lts', 'wheezy-security',
                  'jessie', 'jessie-security',
+                 'stretch',
                  'sid', 'fedora20', 'centos6', 'centos7'],
         action="append",
         default=[],
@@ -565,6 +566,7 @@ def main():
             distributions.add("sid")
         if 'linuxpenguins' in distros:
             distributions.add("sid")
+            distributions.add("stretch")
             distributions.add("jessie")
 
     architectures = set(args.architectures)
@@ -575,6 +577,8 @@ def main():
         build = []
         if 'sid' in distributions:
             build.append('sid')
+        if 'stretch' in distributions:
+            build.append('stretch')
         if 'jessie' in distributions:
             build.append('jessie')
 
@@ -588,6 +592,9 @@ def main():
 
             with temp_dir() as tmp_dir:
                 tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
+                if distribution == "stretch":
+                    tmp_dsc_path = deb_update_source(
+                        tmp_dir, tmp_dsc_path, distribution, "~bpo90")
                 if distribution == "jessie":
                     tmp_dsc_path = deb_update_source(
                         tmp_dir, tmp_dsc_path, distribution, "~bpo80")
