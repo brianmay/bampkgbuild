@@ -522,8 +522,9 @@ def main():
         "--distributions",
         choices=['squeeze-lts', 'wheezy-security',
                  'jessie', 'jessie-security',
-                 'stretch',
-                 'sid', 'fedora20', 'centos6', 'centos7'],
+                 'stretch', 'sid',
+                 'xenial',
+                 'fedora20', 'centos6', 'centos7'],
         action="append",
         default=[],
         help="build distributions")
@@ -575,6 +576,7 @@ def main():
             distributions.add("sid")
             distributions.add("stretch")
             distributions.add("jessie")
+            distributions.add("xenial")
 
     architectures = set(args.architectures)
     if len(architectures) == 0:
@@ -588,6 +590,8 @@ def main():
             build.append('stretch')
         if 'jessie' in distributions:
             build.append('jessie')
+        if 'xenial' in distributions:
+            build.append('xenial')
 
         for distribution in build:
             arch_all = True
@@ -605,6 +609,9 @@ def main():
                 if distribution == "jessie":
                     tmp_dsc_path = deb_update_source(
                         tmp_dir, tmp_dsc_path, distribution, "~bpo80")
+                if distribution == "xenial":
+                    tmp_dsc_path = deb_update_source(
+                        tmp_dir, tmp_dsc_path, distribution, "~ubuntu16.04.0")
 
                 for architecture in architectures:
                     build_chroot = "%s-%s-sbuild" \
