@@ -317,7 +317,7 @@ def deb_lint(changes_file, chroot):
 #        chroot.check_call(["lintian4py", changes_file])
 
 
-def deb_test(changes_file, chroot, test_mode):
+def deb_test(changes_file, chroot, test_mode, extra_repo):
     if test_mode == "none":
         return
 
@@ -330,6 +330,11 @@ def deb_test(changes_file, chroot, test_mode):
             debs.append(os.path.join(build_dir, f['name']))
 
     with schroot.schroot(chroot) as chroot:
+        if extra_repo is not None:
+            name = '/etc/apt/sources.list.d/extra_repo.list'
+            with chroot.create_file(name, user='root') as f:
+                f.write("%s\n" % (extra_repo))
+
         chroot.check_call(["apt-get", "update"], user="root")
         chroot.check_call(["dpkg", "--unpack", "--"] + debs, user="root")
         chroot.check_call(
@@ -613,7 +618,9 @@ def main():
                         deb_sign(changes_file)
                         if distribution == "sid":
                             deb_lint(changes_file, test_chroot)
-                        deb_test(changes_file, test_chroot, args.test)
+                        deb_test(changes_file, test_chroot, args.test,
+                                 "deb http://localhost:9999/linuxpenguins "
+                                 "%s main" % distribution)
 
                         if args.upload:
                             deb_upload("linuxpenguins", 0, changes_file)
@@ -723,7 +730,7 @@ def main():
                         deb_sign(changes_file)
                         if distribution == "sid":
                             deb_lint(changes_file, test_chroot)
-                        deb_test(changes_file, test_chroot, args.test)
+                        deb_test(changes_file, test_chroot, args.test, None)
                     arch_all = False
                     source = False
 
