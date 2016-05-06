@@ -768,6 +768,8 @@ def main():
             if upload_distribution == "sid":
                 upload_distribution = "unstable"
 
+            server = "ftp-master"
+
             with temp_dir() as tmp_dir:
                 tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
                 for architecture in architectures:
@@ -784,16 +786,18 @@ def main():
                         if distribution == "sid":
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test, None)
+                        if args.upload and source:
+                            deb_upload(server, args.delayed, changes_file)
                     arch_all = False
                     source = False
 
-                changes_file = deb_build_source_only(
-                    tmp_dir, tmp_dsc_path, upload_distribution)
-                if changes_file is not None:
-                    deb_sign(changes_file)
-                    deb_test_source_only(changes_file, args.test)
-                    if args.upload:
-                        deb_upload("ftp-master", args.delayed, changes_file)
+                # changes_file = deb_build_source_only(
+                #     tmp_dir, tmp_dsc_path, upload_distribution)
+                # if changes_file is not None:
+                #     deb_sign(changes_file)
+                #     deb_test_source_only(changes_file, args.test, None)
+                #     if args.upload:
+                #         deb_upload(server, args.delayed, changes_file)
 
     # end if 'debian' in distros:
 
