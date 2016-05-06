@@ -513,7 +513,7 @@ def main():
 
     parser.add_argument(
         "--distros",
-        choices=['debian', 'linuxpenguins', 'pypi'],
+        choices=['debian', 'people', 'linuxpenguins', 'pypi'],
         action="append",
         default=[],
         help="build distros")
@@ -569,6 +569,8 @@ def main():
     if len(distributions) == 0:
         if 'debian' in distros:
             distributions.add("sid")
+        if 'people' in distros:
+            distributions.add("wheezy-security")
         if 'linuxpenguins' in distros:
             distributions.add("sid")
             distributions.add("stretch")
@@ -694,6 +696,50 @@ def main():
                     source = False
 
     # end if 'linuxpenguins' in distros:
+
+    if 'people' in distros:
+        build = []
+        if 'wheezy-security' in distributions:
+            build.append('wheezy-security')
+
+        for distribution in build:
+            arch_all = True
+            source = True
+
+            split = distribution.split("-")
+            real_distribution = split[0]
+
+            upload_distribution = distribution
+            if upload_distribution == "sid":
+                upload_distribution = "unstable"
+
+            server = "people"
+
+            with temp_dir() as tmp_dir:
+                tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
+                for architecture in architectures:
+                    build_chroot = "%s-%s-sbuild" \
+                        % (real_distribution, architecture,)
+                    test_chroot = "%s-%s-default" \
+                        % (real_distribution, architecture,)
+                    changes_file = deb_build(
+                        tmp_dir, tmp_dsc_path, build_chroot,
+                        upload_distribution, architecture, arch_all, source,
+                        "deb http://localhost:9999/people %s main"
+                        % distribution)
+                    if changes_file is not None:
+                        deb_sign(changes_file)
+                        if distribution == "sid":
+                            deb_lint(changes_file, test_chroot)
+                        deb_test(changes_file, test_chroot, args.test,
+                                 "deb http://localhost:9999/people %s main"
+                                 % distribution)
+                        if args.upload:
+                            deb_upload(server, args.delayed, changes_file)
+                    arch_all = False
+                    source = False
+
+    # end if 'people' in distros:
 
     if 'debian' in distros:
         build = []
