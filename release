@@ -520,7 +520,7 @@ def main():
 
     parser.add_argument(
         "--distributions",
-        choices=['squeeze-lts', 'wheezy-security',
+        choices=['wheezy-security',
                  'jessie', 'jessie-security',
                  'stretch', 'sid',
                  'xenial',
@@ -708,6 +708,8 @@ def main():
         build = []
         if 'wheezy-security' in distributions:
             build.append('wheezy-security')
+        if 'jessie-security' in distributions:
+            build.append('jessie-security')
 
         for distribution in build:
             arch_all = True
