@@ -181,26 +181,26 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
 
     os.makedirs(dst_dir)
 
-    if arch_all:
-        arch_all = "--arch-all"
-    else:
-        arch_all = "--no-arch-all"
-
-    if source:
-        source = "--source"
-    else:
-        source = "--no-source"
-
     params = [
         "sbuild",
-        arch_all, source,
         "--dist", distribution,
         "--build", architecture,
         "--host", architecture,
         "--chroot", chroot_name,
-        "--force-orig-source",
+        "--add-conflicts", "libavcodec53",
         # "--run-piuparts",
     ]
+
+    if arch_all:
+        params.append("--arch-all")
+    else:
+        params.append("--no-arch-all")
+
+    if source:
+        params.append("--source")
+        params.append("--force-orig-source")
+    else:
+        params.append("--no-source")
 
     if extra_repo is not None:
         params.append("--extra-repository")
