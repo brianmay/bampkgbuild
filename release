@@ -771,6 +771,8 @@ def main():
                 upload_distribution = "unstable"
 
             server = "ftp-master"
+            if split[-1] == "security":
+                server = "security-master"
 
             with temp_dir() as tmp_dir:
                 tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
