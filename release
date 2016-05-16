@@ -593,9 +593,9 @@ def main():
         if 'xenial' in distributions:
             build.append('xenial')
 
+        source = True
         for distribution in build:
             arch_all = True
-            source = True
 
             upload_distribution = distribution
             if upload_distribution == "sid":
@@ -711,9 +711,9 @@ def main():
         if 'jessie-security' in distributions:
             build.append('jessie-security')
 
+        source = True
         for distribution in build:
             arch_all = True
-            source = True
 
             split = distribution.split("-")
             real_distribution = split[0]
@@ -759,9 +759,9 @@ def main():
         if 'wheezy-security' in distributions:
             build.append('wheezy-security')
 
+        source = True
         for distribution in build:
             arch_all = True
-            source = True
 
             split = distribution.split("-")
             real_distribution = split[0]
