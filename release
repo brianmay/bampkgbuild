@@ -809,5 +809,6 @@ def main():
         with temp_dir() as tmp_dir:
             pypi_upload(tmp_dir, dsc_path)
 
+
 if __name__ == "__main__":
     main()
