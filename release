@@ -68,7 +68,9 @@ def deb_build_src(src_dir):
             check_call([
                 "gbp", "buildpackage",
                 # "--git-ignore-branch", "--git-ignore-new",
-                "--git-builder=debuild -i -I -S"])
+                "--git-builder=debuild -i -I -S",
+                "--no-check-builddeps",
+            ])
 
     else:
         src_abs = os.path.abspath(src_dir)
