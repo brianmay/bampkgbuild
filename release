@@ -761,7 +761,7 @@ def main():
             build.append('jessie-security')
         if 'wheezy-security' in distributions:
             build.append('wheezy-security')
-        if 'experimental' == "experimental":
+        if 'experimental' in distributions:
             build.append('experimental')
 
         source = True
