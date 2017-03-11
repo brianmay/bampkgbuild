@@ -525,7 +525,7 @@ def main():
         "--distributions",
         choices=['wheezy-security',
                  'jessie', 'jessie-security',
-                 'stretch', 'sid',
+                 'stretch', 'sid', 'experimental',
                  'xenial',
                  'fedora20', 'centos6', 'centos7'],
         action="append",
@@ -761,6 +761,8 @@ def main():
             build.append('jessie-security')
         if 'wheezy-security' in distributions:
             build.append('wheezy-security')
+        if 'experimental' == "experimental":
+            build.append('experimental')
 
         source = True
         for distribution in build:
@@ -772,6 +774,8 @@ def main():
             upload_distribution = distribution
             if upload_distribution == "sid":
                 upload_distribution = "unstable"
+            elif upload_distribution == "experimental":
+                real_distribution = "sid"
 
             server = "ftp-master"
             if split[-1] == "security":
@@ -790,7 +794,7 @@ def main():
                         None)
                     if changes_file is not None:
                         deb_sign(changes_file)
-                        if distribution == "sid":
+                        if distribution in ["sid", "experimental"]:
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test, None)
                         if args.upload and source:
