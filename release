@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import argparse
 import os
 import os.path
@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import schroot
 import re
-from email.Utils import formatdate
+from email.utils import formatdate
 from debian import deb822
 from debian import changelog
 from contextlib import contextmanager
