@@ -805,7 +805,8 @@ def main():
                         if distribution in ["sid", "experimental"]:
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test, None)
-                        if args.upload and source and distribution != "stretch":
+                        if (args.upload and source
+                                and distribution != "stretch"):
                             deb_upload(server, args.delayed, changes_file)
                     arch_all = False
                     source = False
