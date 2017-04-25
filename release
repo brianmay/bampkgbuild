@@ -776,7 +776,6 @@ def main():
             split = distribution.split("-")
             real_distribution = split[0]
 
-            print("xxxxxx", real_distribution)
             upload_distribution = distribution
             if upload_distribution == "sid":
                 upload_distribution = "unstable"
