@@ -67,6 +67,7 @@ chroot "$DIR" apt-get --yes install apt-transport-https
 #echo "deb-src http://localhost:9999/linuxpenguins $SUITE main" >> "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
 #chmod 644 "$DIR"/etc/apt/sources.list.d/linuxpenguins.list
 
+chroot "$DIR" apt-get --yes install gnupg
 wget https://linuxpenguins.xyz/debian/linuxpenguins.gpg.key -O- | chroot "$DIR" apt-key  add -
 
 #chroot "$DIR" apt-get update
