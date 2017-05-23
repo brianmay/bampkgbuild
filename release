@@ -115,30 +115,37 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
     dsc_file = os.path.basename(dsc_path)
     build_dir = os.path.join(tmp_dir, "source")
 
-    if add_to_version is not None:
-        with chdir(tmp_dir):
-            check_call(["dpkg-source", "-x", dsc_file, build_dir])
+    with chdir(tmp_dir):
+        check_call(["dpkg-source", "-x", dsc_file, build_dir])
 
-        changelog_file = "debian/changelog"
-        changelog_path = os.path.join(build_dir, changelog_file)
+    changelog_file = "debian/changelog"
+    changelog_path = os.path.join(build_dir, changelog_file)
 
-        cl = changelog.Changelog(open(changelog_path))
-        version = cl.get_version()
-        version = str(version)
+    cl = changelog.Changelog(open(changelog_path))
 
-        m = re.search("^(.*)~bpo\d\d\+(\d+)$", version)
-        if m is not None:
-            version = m.group(1)
-            offset = int(m.group(2))
-            offset = "+" + str(offset) + ".1"
-        else:
-            offset = "+1"
+    first_block = cl[0]
+    version = str(first_block.version)
 
-        version = version + add_to_version + offset
+    write_changelog = False
+    m = re.search("^(.*)(~.*)\+(\d+)$", version)
+    if m is not None:
+        version_prefix = m.group(1)
+        offset = m.group(3)
+        new_version = version_prefix + add_to_version + "+" + offset
 
+        if (version != new_version
+                or first_block.distributions != distribution):
+
+            write_changelog = True
+            first_block.version = new_version
+            first_block.distributions = distribution
+    else:
+        new_version = version + add_to_version + "+1"
+
+        write_changelog = True
         cl.new_block(
             package=cl.package,
-            version=version,
+            version=new_version,
             distributions=distribution,
             urgency="low",
             author="Brian May <bam@debian.org>",
@@ -147,16 +154,33 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
         cl.add_change('')
         cl.add_change("  * Rebuild for %s." % distribution)
         cl.add_change('')
+
+    if write_changelog:
         cl.write_to_open_file(open(changelog_path, "w"))
 
-        with chdir(tmp_dir):
-            check_call([
-                "dpkg-source",
-                "-b", "source"])
+    control_file = "debian/control"
+    control_path = os.path.join(build_dir, control_file)
 
-        version = re.sub('^\d+:', '', str(cl.version), 1)
-        dsc_file = "%s_%s.dsc" % (cl.package, version)
-        dsc_path = os.path.join(tmp_dir, dsc_file)
+    control_file_tmp = "debian/control.tmp"
+    control_path_tmp = os.path.join(build_dir, control_file_tmp)
+
+    with open(control_path, 'r') as in_file:
+        with open(control_path_tmp, "w") as out_file:
+            for d in deb822.Deb822.iter_paragraphs(in_file):
+                d['Bugs'] = 'mailto:Brian May <brian@linuxpenguins.xyz>'
+                d.dump(out_file)
+                out_file.write("\n")
+
+    os.rename(control_path_tmp, control_path)
+
+    with chdir(tmp_dir):
+        check_call([
+            "dpkg-source",
+            "-b", "source"])
+
+    version = re.sub('^\d+:', '', str(cl.version), 1)
+    dsc_file = "%s_%s.dsc" % (cl.package, version)
+    dsc_path = os.path.join(tmp_dir, dsc_file)
 
     return dsc_path
 
@@ -607,6 +631,9 @@ def main():
 
             with temp_dir() as tmp_dir:
                 tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
+                if distribution == "sid":
+                    tmp_dsc_path = deb_update_source(
+                        tmp_dir, tmp_dsc_path, distribution, "~lp")
                 if distribution == "stretch":
                     tmp_dsc_path = deb_update_source(
                         tmp_dir, tmp_dsc_path, distribution, "~bpo90")
