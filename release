@@ -633,7 +633,7 @@ def main():
                 tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
                 if distribution == "sid":
                     tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, distribution, "~lp")
+                        tmp_dir, tmp_dsc_path, distribution, "~bpo99")
                 if distribution == "stretch":
                     tmp_dsc_path = deb_update_source(
                         tmp_dir, tmp_dsc_path, distribution, "~bpo90")
