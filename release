@@ -633,16 +633,20 @@ def main():
                 tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
                 if distribution == "sid":
                     tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, distribution, "~bpo99")
+                        tmp_dir, tmp_dsc_path, upload_distribution,
+                        "~bpo99")
                 if distribution == "stretch":
                     tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, distribution, "~bpo90")
+                        tmp_dir, tmp_dsc_path, upload_distribution,
+                        "~bpo90")
                 if distribution == "jessie":
                     tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, distribution, "~bpo80")
+                        tmp_dir, tmp_dsc_path, upload_distribution,
+                        "~bpo80")
                 if distribution == "xenial":
                     tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, distribution, "~ubuntu16.04.0")
+                        tmp_dir, tmp_dsc_path, upload_distribution,
+                        "~ubuntu16.04.0")
 
                 for architecture in architectures:
                     build_chroot = "%s-%s-sbuild" \
