@@ -620,8 +620,8 @@ def main():
         if 'xenial' in distributions:
             build.append('xenial')
 
-        source = True
         for distribution in build:
+            source = True
             arch_all = True
 
             upload_distribution = distribution
@@ -745,8 +745,8 @@ def main():
         if 'jessie-security' in distributions:
             build.append('jessie-security')
 
-        source = True
         for distribution in build:
+            source = True
             arch_all = True
 
             split = distribution.split("-")
