@@ -788,8 +788,6 @@ def main():
         build = []
         if 'sid' in distributions:
             build.append('sid')
-        if 'stretch' in distributions:
-            build.append('stretch')
         if 'testing-proposed-updates' in distributions:
             build.append('testing-proposed-updates')
         if 'jessie-security' in distributions:
