@@ -365,7 +365,8 @@ def deb_test(changes_file, chroot, test_mode, extra_repo):
         if extra_repo is not None:
             name = '/etc/apt/sources.list.d/extra_repo.list'
             with chroot.create_file(name, user='root') as f:
-                f.write("%s\n" % (extra_repo))
+                data = "%s\n" % (extra_repo)
+                f.write(data.encode('ASCII'))
 
         chroot.check_call(["apt-get", "update"], user="root")
         chroot.check_call(["dpkg", "--unpack", "--"] + debs, user="root")
