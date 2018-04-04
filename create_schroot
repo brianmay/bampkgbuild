@@ -69,6 +69,7 @@ chroot "$DIR" apt-get --yes install apt-transport-https
 
 chroot "$DIR" apt-get --yes install gnupg
 wget https://linuxpenguins.xyz/debian/linuxpenguins.gpg.key -O- | chroot "$DIR" apt-key  add -
+wget https://people.debian.org/~bam/debian/key.gpg -O- | chroot "$DIR" apt-key  add -
 
 #chroot "$DIR" apt-get update
 #chroot "$DIR" apt-get upgrade
