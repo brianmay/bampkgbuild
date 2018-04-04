@@ -555,7 +555,7 @@ def main():
         "--distributions",
         choices=['wheezy-security',
                  'jessie', 'jessie-security',
-                 'stretch', 'testing-proposed-updates',
+                 'stretch', 'stretch-security',
                  'sid', 'experimental',
                  'xenial',
                  'fedora20', 'centos6', 'centos7'],
@@ -751,6 +751,8 @@ def main():
             build.append('wheezy-security')
         if 'jessie-security' in distributions:
             build.append('jessie-security')
+        if 'stretch-security' in distributions:
+            build.append('stretch-security')
 
         for distribution in build:
             source = True
@@ -793,14 +795,14 @@ def main():
 
     if 'debian' in distros:
         build = []
-        if 'sid' in distributions:
-            build.append('sid')
-        if 'testing-proposed-updates' in distributions:
-            build.append('testing-proposed-updates')
-        if 'jessie-security' in distributions:
-            build.append('jessie-security')
         if 'wheezy-security' in distributions:
             build.append('wheezy-security')
+        if 'jessie-security' in distributions:
+            build.append('jessie-security')
+        if 'stretch-security' in distributions:
+            build.append('stretch-security')
+        if 'sid' in distributions:
+            build.append('sid')
         if 'experimental' in distributions:
             build.append('experimental')
 
