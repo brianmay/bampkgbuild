@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import sys
 import os
 import os.path
 import tempfile
@@ -328,7 +329,12 @@ def rpm_build(tmp_dir, dsc_path, spec_path, chroot_name,
 
 
 def deb_sign(changes_file):
-    check_call(["debsign", changes_file])
+    try:
+        check_call(["debsign", changes_file])
+    except subprocess.CalledProcessError:
+        print("Push any key to try signing again.")
+        sys.stdin.readline()
+        check_call(["debsign", changes_file])
 
 
 def deb_lint(changes_file, chroot):
