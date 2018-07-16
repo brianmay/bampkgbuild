@@ -352,6 +352,12 @@ def deb_lint(changes_file, chroot):
 def deb_test(changes_file, chroot, test_mode, extra_repo):
     if test_mode == "none":
         return
+    elif test_mode == "manual_no_unpack":
+        build_dir = os.path.dirname(changes_file)
+        with schroot.schroot(chroot) as chroot:
+            with chdir(build_dir):
+                chroot.check_call(["bash"], user="root")
+        return
 
     build_dir = os.path.dirname(changes_file)
     d = deb822.Changes(open(changes_file))
@@ -392,7 +398,7 @@ def deb_test_source_only(changes_file, test_mode):
 
     if test_mode == "auto":
         pass
-    elif test_mode == "manual":
+    elif test_mode in ["manual", "manual_no_unpack"]:
         with chdir(build_dir):
             check_call(["bash"])
     else:
@@ -450,6 +456,11 @@ def rpm_lint(tmp_dir, chroot):
 
 def rpm_test(tmp_dir, chroot, test_mode):
     if test_mode == "none":
+        return
+    elif test_mode == "manual_no_unpack":
+        with schroot.schroot(chroot) as chroot:
+            with chdir(tmp_dir):
+                chroot.check_call(["bash"], user="root")
         return
 
     rpms = []
@@ -580,7 +591,7 @@ def main():
 
     parser.add_argument(
         "--test",
-        choices=['none', 'auto', 'manual'],
+        choices=['none', 'auto', 'manual', 'manual_no_unpack'],
         default='auto',
         help="how to test?")
 
