@@ -262,7 +262,7 @@ def deb_build_source_only(tmp_dir, dsc_path, distribution):
 
     with chdir(build_dir):
         check_call(["dpkg-buildpackage",
-                    "-nc", "-d", "-S", "-uc", "-us",
+                    "-nc", "-d", "-S", "-uc", "-us", "-sa",
                     "--changes-option=-DDistribution=%s" % distribution])
 
     changes_file = None
