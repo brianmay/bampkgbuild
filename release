@@ -165,12 +165,12 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
     control_file_tmp = "debian/control.tmp"
     control_path_tmp = os.path.join(build_dir, control_file_tmp)
 
-    with open(control_path, 'r') as in_file:
-        with open(control_path_tmp, "w") as out_file:
+    with open(control_path, 'rb') as in_file:
+        with open(control_path_tmp, "wb") as out_file:
             for d in deb822.Deb822.iter_paragraphs(in_file):
                 d['Bugs'] = 'mailto:Brian May <brian@linuxpenguins.xyz>'
                 d.dump(out_file)
-                out_file.write("\n")
+                out_file.write(b"\n")
 
     os.rename(control_path_tmp, control_path)
 
