@@ -673,15 +673,13 @@ def main():
                     changes_file = deb_build(
                         tmp_dir, tmp_dsc_path, build_chroot,
                         upload_distribution, architecture, arch_all, source,
-                        "deb http://localhost:9999/linuxpenguins %s main"
-                        % distribution)
+                        None)
                     if changes_file is not None:
                         deb_sign(changes_file)
                         if distribution == "sid":
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test,
-                                 "deb http://localhost:9999/linuxpenguins "
-                                 "%s main" % distribution)
+                                 None)
 
                         if args.upload:
                             deb_upload("linuxpenguins", 0, changes_file)
