@@ -804,11 +804,15 @@ def main():
 
     if 'debian' in distros:
         build = []
+        source_upload = True
         if 'wheezy-security' in distributions:
+            source_upload = False
             build.append('wheezy-security')
         if 'jessie-security' in distributions:
+            source_upload = False
             build.append('jessie-security')
         if 'stretch-security' in distributions:
+            source_upload = False
             build.append('stretch-security')
         if 'sid' in distributions:
             build.append('sid')
@@ -850,19 +854,19 @@ def main():
                         if distribution in ["sid", "experimental"]:
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test, None)
-                        # if (args.upload and source
-                        #         and distribution != "stretch"):
-                        #     deb_upload(server, args.delayed, changes_file)
+                        if not source_upload and args.upload and source:
+                            deb_upload(server, args.delayed, changes_file)
                     arch_all = False
                     source = False
 
-                changes_file = deb_build_source_only(
-                    tmp_dir, tmp_dsc_path, upload_distribution)
-                if changes_file is not None:
-                    deb_sign(changes_file)
-                    deb_test_source_only(changes_file, args.test)
-                    if args.upload:
-                        deb_upload(server, args.delayed, changes_file)
+                if source_upload:
+                    changes_file = deb_build_source_only(
+                        tmp_dir, tmp_dsc_path, upload_distribution)
+                    if changes_file is not None:
+                        deb_sign(changes_file)
+                        deb_test_source_only(changes_file, args.test)
+                        if args.upload:
+                            deb_upload(server, args.delayed, changes_file)
 
     # end if 'debian' in distros:
 
