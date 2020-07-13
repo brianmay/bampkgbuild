@@ -63,10 +63,9 @@ chroot "$DIR" apt-get --yes install apt-transport-https
 #    echo "deb-src http://localhost:9999/debian experimental main" >> "$DIR"/etc/apt/sources.list
 #fi
 
-#chroot "$DIR" apt-get update
-#chroot "$DIR" apt-get upgrade
-#chroot "$DIR" apt-get --yes install locales eatmydata
-#chroot "$DIR" apt-get --yes install build-essential devscripts fakeroot zsh
+chroot "$DIR" apt-get update
+chroot "$DIR" apt-get upgrade
+chroot "$DIR" apt-get --yes install eatmydata build-essential lintian
 
 rm "/etc/schroot/chroot.d/$SUITE-$ARCH-"*
 

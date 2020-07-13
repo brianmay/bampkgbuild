@@ -19,7 +19,7 @@ for i in `schroot -l`; do
         schroot -c "$i" -- apt-get --yes dist-upgrade
         schroot -c "$i" -- apt-get autoremove --purge
         schroot -c "$i" -- apt-get clean
-        schroot -c "$i" -- apt-get install --yes eatmydata
+        schroot -c "$i" -- apt-get install --yes eatmydata build-essential lintian
         echo "-------------------------------------------"
         ;;
     esac
