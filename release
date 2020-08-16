@@ -6,7 +6,6 @@ import os.path
 import tempfile
 import shutil
 import subprocess
-import schroot
 import re
 from email.utils import formatdate
 from debian import deb822
@@ -20,6 +19,88 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+
+class docker_container():
+    def __init__(self, container):
+        self.container = container
+
+    def check_call(self, cmd, root=False, cwd=None):
+        params = [
+                "docker",
+                "exec",
+                "-ti",
+            ]
+
+        if not root:
+            params.extend(["--user", str(os.getuid())])
+        if cwd is not None:
+            params.extend(["--workdir", cwd])
+
+        params.append(self.container)
+        params.extend(cmd)
+        check_call(params)
+
+
+class docker():
+    def __init__(self, chroot_name):
+        self.chroot_name = chroot_name
+
+    def __enter__(self):
+        self.container = check_output([
+            "docker",
+            "create",
+            "-t",
+            "-i",
+            "-v", "/tmp:/tmp",
+            self.chroot_name,
+        ]).strip().decode()
+
+
+        check_call(
+            [
+                "docker",
+                "start",
+                self.container,
+            ]
+        )
+
+        docker = docker_container(self.container)
+        return docker
+
+
+        volumes={
+            "/tmp": {"bind": "/tmp/", "mode": "rw"}
+        }
+        self.container = client.containers.run(
+            self.chroot_name,
+            detach=True,
+            volumes=volumes,
+            command=["tail", "-f", "/dev/null"],
+            stdout=False,
+            stderr=False,
+            # stdin=False,
+            tty=True,
+        )
+        docker = docker_container(self.container)
+        return docker
+
+    def __exit__(self, type, value, traceback):
+        check_call(
+            [
+                "docker",
+                "kill",
+                self.container,
+            ]
+        )
+
+        check_call(
+            [
+                "docker",
+                "rm",
+                self.container,
+            ]
+        )
 
 
 def setup_logging():
@@ -57,10 +138,13 @@ def check_call(cmd):
     return subprocess.check_call(cmd)
 
 
+def check_output(cmd):
+    logger.debug(" ".join(cmd))
+    return subprocess.check_output(cmd)
+
 def deb_build_src(src_dir):
     changelog_file = os.path.join(src_dir, "debian/changelog")
     cl = changelog.Changelog(open(changelog_file))
-
     parent_dir = os.path.join(src_dir, "..")
 
     if os.path.isdir(os.path.join(src_dir, ".git")):
@@ -68,7 +152,7 @@ def deb_build_src(src_dir):
         with chdir(src_dir):
             check_call([
                 "gbp", "buildpackage",
-                # "--git-ignore-branch", "--git-ignore-new",
+                "--git-ignore-branch", "--git-ignore-new",
                 "--git-builder=debuild --no-lintian -i -I -S -nc",
                 "--no-check-builddeps",
             ])
@@ -84,7 +168,7 @@ def deb_build_src(src_dir):
                 "-b", src_name])
 
     # remove epoch for filename
-    version = re.sub('^\d+:', '', str(cl.version), 1)
+    version = re.sub(r'^\d+:', '', str(cl.version), 1)
     dsc_file = "%s_%s.dsc" % (cl.package, version)
     dsc_file = os.path.join(parent_dir, dsc_file)
     return dsc_file
@@ -128,7 +212,7 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
     version = str(first_block.version)
 
     write_changelog = False
-    m = re.search("^(.*)(~.*)\+(\d+)$", version)
+    m = re.search(r"^(.*)(~.*)\+(\d+)$", version)
     if m is not None:
         version_prefix = m.group(1)
         offset = m.group(3)
@@ -179,7 +263,7 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
             "dpkg-source",
             "-b", "source"])
 
-    version = re.sub('^\d+:', '', str(cl.version), 1)
+    version = re.sub(r'^\d+:', '', str(cl.version), 1)
     dsc_file = "%s_%s.dsc" % (cl.package, version)
     dsc_path = os.path.join(tmp_dir, dsc_file)
 
@@ -187,83 +271,38 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
 
 
 def deb_build(tmp_dir, dsc_path, chroot_name,
-              distribution, architecture, arch_all, source,
+              distribution, architecture, arch_any, arch_all, source,
               extra_repo):
-    True
-#    src_dir = os.path.dirname(dsc_path)
-
     dst_dir = os.path.join(tmp_dir, "build", architecture)
-    # dsc_file = os.path.basename(dsc_path)
-    dsc_path = os.path.abspath(dsc_path)
-
-#    d = deb822.Dsc(open(dsc_path))
-
-#    src_path = dsc_path
-#    dst_path = os.path.join(dst_dir, dsc_file)
-#    shutil.copyfile(src_path, dst_path)
-
-#    for f in d['files']:
-#        src_path = os.path.join(src_dir, f['name'])
-#        dst_path = os.path.join(dst_dir, f['name'])
-#        shutil.copyfile(src_path, dst_path)
-
-    os.makedirs(dst_dir)
-
-    params = [
-        "sbuild",
-        "--dist", distribution,
-        "--build", architecture,
-        "--host", architecture,
-        "--chroot", chroot_name,
-        # "--run-piuparts",
-    ]
-
-    if arch_all:
-        params.append("--arch-all")
-    else:
-        params.append("--no-arch-all")
-
-    if source:
-        params.append("--source")
-        params.append("--force-orig-source")
-    else:
-        params.append("--no-source")
-
-    if extra_repo is not None:
-        params.append("--extra-repository")
-        params.append(extra_repo)
-
-    params.append(dsc_path)
-
-    with chdir(dst_dir):
-        check_call(params)
-
-    changes_file = None
-    for name in os.listdir(dst_dir):
-        if name.endswith(".changes"):
-            if changes_file is not None:
-                raise RuntimeError("Found more then one .changes files")
-            changes_file = os.path.join(dst_dir, name)
-
-    if changes_file is None:
-        return None
-
-    return changes_file
-
-
-def deb_build_source_only(tmp_dir, dsc_path, distribution):
-    dst_dir = os.path.join(tmp_dir, "build", "source-upload")
     dsc_path = os.path.abspath(dsc_path)
     build_dir = os.path.join(dst_dir, "source")
 
-    os.makedirs(dst_dir)
-    with chdir(dst_dir):
-        check_call(["dpkg-source", "-x", dsc_path, build_dir])
+    params = [
+        "dpkg-buildpackage",
+        "--unsigned-source",
+        "--unsigned-changes",
+        "--changes-option=-DDistribution=%s" % distribution
+    ]
 
-    with chdir(build_dir):
-        check_call(["dpkg-buildpackage",
-                    "-nc", "-d", "-S", "-uc", "-us", "-sa",
-                    "--changes-option=-DDistribution=%s" % distribution])
+    build=[]
+    if source:
+        build.append("source")
+    if arch_any:
+        build.append("any")
+    if arch_all:
+        build.append("all")
+
+    if len(build) == 0:
+        raise RuntimeError("Nothing to build")
+
+    params.append("--build=" + ",".join(build))
+
+    with docker(chroot_name) as chroot:
+        chroot.check_call(["mkdir", "-p", dst_dir])
+        chroot.check_call(["dpkg-source", "-x", dsc_path, build_dir], cwd=dst_dir)
+        chroot.check_call(["apt-get", "update", "--yes"], root=True)
+        chroot.check_call(["apt-get-build-depends", "--yes"], cwd=build_dir, root=True)
+        chroot.check_call(params, cwd=build_dir)
 
     changes_file = None
     for name in os.listdir(dst_dir):
@@ -314,7 +353,7 @@ def rpm_build(tmp_dir, dsc_path, spec_path, chroot_name,
     else:
         source = "-bb"
 
-    with schroot.schroot(chroot_name) as chroot:
+    with docker(chroot_name) as chroot:
         chroot.check_call([
             "yum-builddep", "-y",
             spec_path], user="root")
@@ -338,13 +377,14 @@ def deb_sign(changes_file):
 
 
 def deb_lint(changes_file, chroot):
-    with schroot.schroot(chroot) as chroot:
+    with docker(chroot) as chroot:
+        chroot.check_call(["apt-get", "update"], root=True)
         chroot.check_call([
             "apt-get", "--yes", "-oDpkg::Options::=--force-confold",
-            "install", "lintian"], user="root")
+            "install", "lintian"], root=True)
 #        chroot.check_call([
 #            "apt-get", "--yes", "-t", "experimental",
-#            "install", "lintian4python"], user="root")
+#            "install", "lintian4python"], root=True)
         chroot.check_call(["lintian", changes_file])
 #        chroot.check_call(["lintian4py", changes_file])
 
@@ -354,9 +394,8 @@ def deb_test(changes_file, chroot, test_mode, extra_repo):
         return
     elif test_mode == "manual_no_unpack":
         build_dir = os.path.dirname(changes_file)
-        with schroot.schroot(chroot) as chroot:
-            with chdir(build_dir):
-                chroot.check_call(["bash"], user="root")
+        with docker(chroot) as chroot:
+            chroot.check_call(["bash"], cwd=build_dir, user="root")
         return
 
     build_dir = os.path.dirname(changes_file)
@@ -367,25 +406,24 @@ def deb_test(changes_file, chroot, test_mode, extra_repo):
         if f['name'].endswith(".deb"):
             debs.append(os.path.join(build_dir, f['name']))
 
-    with schroot.schroot(chroot) as chroot:
+    with docker(chroot) as chroot:
         if extra_repo is not None:
             name = '/etc/apt/sources.list.d/extra_repo.list'
             with chroot.create_file(name, user='root') as f:
                 data = "%s\n" % (extra_repo)
                 f.write(data.encode('ASCII'))
 
-        chroot.check_call(["apt-get", "update"], user="root")
-        chroot.check_call(["dpkg", "--unpack", "--"] + debs, user="root")
+        chroot.check_call(["apt-get", "update"], root=True)
+        chroot.check_call(["dpkg", "--unpack", "--"] + debs, root=True)
         chroot.check_call(
             ["apt-get", "--yes", "-f", "-oDpkg::Options::=--force-confold",
                 "install"],
-            user="root")
+            root=True)
 
         if test_mode == "auto":
             pass
         elif test_mode == "manual":
-            with chdir(build_dir):
-                chroot.check_call(["bash"], user="root")
+            chroot.check_call(["bash"], cwd=build_dir, root=True)
         else:
             raise RuntimeError("Unknown test mode %s" % test_mode)
 
@@ -447,10 +485,10 @@ def rpm_lint(tmp_dir, chroot):
         for name_2 in os.listdir(src_dir_2):
             rpms.append(os.path.join(src_dir_2, name_2))
 
-    with schroot.schroot(chroot) as chroot:
+    with docker(chroot) as chroot:
         chroot.check_call(
             ["yum", "install", "--assumeyes", "--", "rpmlint"],
-            user="root")
+            root=True)
         chroot.check_call(["rpmlint"] + rpms)
 
 
@@ -458,9 +496,8 @@ def rpm_test(tmp_dir, chroot, test_mode):
     if test_mode == "none":
         return
     elif test_mode == "manual_no_unpack":
-        with schroot.schroot(chroot) as chroot:
-            with chdir(tmp_dir):
-                chroot.check_call(["bash"], user="root")
+        with docker(chroot) as chroot:
+            chroot.check_call(["bash"], cwd=tmp_dir, root=True)
         return
 
     rpms = []
@@ -471,17 +508,16 @@ def rpm_test(tmp_dir, chroot, test_mode):
         for name_2 in os.listdir(src_dir_2):
             rpms.append(os.path.join(src_dir_2, name_2))
 
-    with schroot.schroot(chroot) as chroot:
+    with docker(chroot) as chroot:
         chroot.check_call(
-            ["yum", "update", "--assumeyes"], user="root")
+            ["yum", "update", "--assumeyes"], root=True)
         chroot.check_call(
-            ["yum", "localinstall", "--assumeyes", "--"] + rpms, user="root")
+            ["yum", "localinstall", "--assumeyes", "--"] + rpms, root=True)
 
         if test_mode == "auto":
             pass
         elif test_mode == "manual":
-            with chdir(tmp_dir):
-                chroot.check_call(["bash"], user="root")
+            chroot.check_call(["bash"], cwd=tmp_dir, root=True)
         else:
             raise RuntimeError("Unknown test mode %s" % test_mode)
 
@@ -545,11 +581,6 @@ def main():
         help="Act on tree in working directory.")
 
     parser.add_argument(
-        "--spec",
-        dest="spec_path",
-        help="RPM Spec File")
-
-    parser.add_argument(
         "--upload",
         action="store_true",
         default=False,
@@ -602,13 +633,8 @@ def main():
     else:
         dsc_path = args.dsc_path
 
-    spec_path = None
-    if args.spec_path:
-        spec_path = args.spec_path
-
     distros = set(args.distros)
     if len(distros) == 0:
-        distros.add("linuxpenguins")
         distros.add("debian")
 
     distributions = set(args.distributions)
@@ -617,142 +643,10 @@ def main():
             distributions.add("sid")
         if 'people' in distros:
             distributions.add("wheezy-security")
-        if 'linuxpenguins' in distros:
-            distributions.add("sid")
-            distributions.add("stretch")
-            distributions.add("jessie")
-            distributions.add("xenial")
 
     architectures = set(args.architectures)
     if len(architectures) == 0:
         architectures = ['i386', 'amd64']
-
-    if 'linuxpenguins' in distros:
-        build = []
-        if 'sid' in distributions:
-            build.append('sid')
-        if 'stretch' in distributions:
-            build.append('stretch')
-        if 'jessie' in distributions:
-            build.append('jessie')
-        if 'xenial' in distributions:
-            build.append('xenial')
-
-        for distribution in build:
-            source = True
-            arch_all = True
-
-            upload_distribution = distribution
-            if upload_distribution == "sid":
-                upload_distribution = "unstable"
-
-            with temp_dir() as tmp_dir:
-                tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
-                if distribution == "sid":
-                    tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, upload_distribution,
-                        "~bpo99")
-                if distribution == "stretch":
-                    tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, upload_distribution,
-                        "~bpo90")
-                if distribution == "jessie":
-                    tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, upload_distribution,
-                        "~bpo80")
-                if distribution == "xenial":
-                    tmp_dsc_path = deb_update_source(
-                        tmp_dir, tmp_dsc_path, upload_distribution,
-                        "~ubuntu16.04.0")
-
-                for architecture in architectures:
-                    build_chroot = "%s-%s-sbuild" \
-                        % (distribution, architecture,)
-                    test_chroot = "%s-%s-default" \
-                        % (distribution, architecture,)
-                    changes_file = deb_build(
-                        tmp_dir, tmp_dsc_path, build_chroot,
-                        upload_distribution, architecture, arch_all, source,
-                        None)
-                    if changes_file is not None:
-                        deb_sign(changes_file)
-                        if distribution == "sid":
-                            deb_lint(changes_file, test_chroot)
-                        deb_test(changes_file, test_chroot, args.test,
-                                 None)
-
-                        if args.upload:
-                            deb_upload("linuxpenguins", 0, changes_file)
-                    arch_all = False
-                    source = False
-
-        if 'fedora20' in distributions:
-            arch_all = True
-            source = True
-            distribution = "fedora20"
-            for architecture in architectures:
-                chroot = "%s-%s" % (distribution, architecture)
-                with temp_dir() as tmp_dir:
-                    rc = rpm_build(
-                        tmp_dir, dsc_path, spec_path, chroot,
-                        distribution, architecture, arch_all, source)
-                    if rc:
-                        rpm_lint(tmp_dir, chroot)
-                        rpm_test(tmp_dir, chroot, args.test)
-                        if args.upload:
-                            rpm_upload(
-                                tmp_dir,
-                                "root@mirror.linuxpenguins.xyz:"
-                                "/var/www/fedora/20/incoming")
-                    arch_all = False
-                    source = False
-
-        if 'centos7' in distributions:
-            arch_all = True
-            source = True
-            distribution = "centos7"
-            for architecture in architectures:
-                chroot = "%s-%s" % (distribution, architecture)
-                with temp_dir() as tmp_dir:
-                    rc = rpm_build(
-                        tmp_dir, dsc_path, spec_path, chroot,
-                        distribution, architecture, arch_all, source)
-                    if rc:
-                        rpm_lint(tmp_dir, chroot)
-                        rpm_test(tmp_dir, chroot, args.test)
-                        if 'vpac' in args.upload:
-                            rpm_upload(
-                                tmp_dir,
-                                "root@mirror.linuxpenguins.xyz:"
-                                "/var/www/centos/7/incoming")
-                    arch_all = False
-                    source = False
-
-            arch_all = False
-            source = False
-
-        if 'centos6' in distributions:
-            arch_all = True
-            source = True
-            distribution = "centos6"
-            for architecture in architectures:
-                chroot = "%s-%s" % (distribution, architecture)
-                with temp_dir() as tmp_dir:
-                    rc = rpm_build(
-                        tmp_dir, dsc_path, spec_path, chroot,
-                        distribution, architecture, arch_all, source)
-                    if rc:
-                        # rpm_lint(tmp_dir, chroot)
-                        rpm_test(tmp_dir, chroot, args.test)
-                        if 'vpac' in args.upload:
-                            rpm_upload(
-                                tmp_dir,
-                                "root@mirror.linuxpenguins.xyz:"
-                                "/var/www/centos/6/incoming")
-                    arch_all = False
-                    source = False
-
-    # end if 'linuxpenguins' in distros:
 
     if 'people' in distros:
         build = []
@@ -779,13 +673,11 @@ def main():
             with temp_dir() as tmp_dir:
                 tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
                 for architecture in architectures:
-                    build_chroot = "%s-%s-sbuild" \
-                        % (real_distribution, architecture,)
-                    test_chroot = "%s-%s-default" \
-                        % (real_distribution, architecture,)
+                    build_chroot = f"brianmay/debian-{architecture}:{real_distribution}"
+                    test_chroot = f"brianmay/debian-{architecture}:{real_distribution}"
                     changes_file = deb_build(
                         tmp_dir, tmp_dsc_path, build_chroot,
-                        upload_distribution, architecture, arch_all, source,
+                        upload_distribution, architecture, True, arch_all, source,
                         "deb http://localhost:9999/people %s main"
                         % distribution)
                     if changes_file is not None:
@@ -841,13 +733,11 @@ def main():
             with temp_dir() as tmp_dir:
                 tmp_dsc_path = deb_copy_source(tmp_dir, dsc_path)
                 for architecture in architectures:
-                    build_chroot = "%s-%s-sbuild" \
-                        % (real_distribution, architecture,)
-                    test_chroot = "%s-%s-default" \
-                        % (real_distribution, architecture,)
+                    build_chroot = f"brianmay/debian-{architecture}:{real_distribution}"
+                    test_chroot = f"brianmay/debian-{architecture}:{real_distribution}"
                     changes_file = deb_build(
                         tmp_dir, tmp_dsc_path, build_chroot,
-                        upload_distribution, architecture, arch_all, source,
+                        upload_distribution, architecture, True, arch_all, source,
                         None)
                     if changes_file is not None:
                         deb_sign(changes_file)
@@ -860,8 +750,12 @@ def main():
                     source = False
 
                 if source_upload:
-                    changes_file = deb_build_source_only(
-                        tmp_dir, tmp_dsc_path, upload_distribution)
+                    build_chroot = f"brianmay/debian-source:{real_distribution}"
+                    test_chroot = f"brianmay/debian-source:{real_distribution}"
+                    changes_file = deb_build(
+                        tmp_dir, tmp_dsc_path, build_chroot,
+                        upload_distribution, "source", False, False, True,
+                        None)
                     if changes_file is not None:
                         deb_sign(changes_file)
                         deb_test_source_only(changes_file, args.test)
