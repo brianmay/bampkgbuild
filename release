@@ -26,16 +26,25 @@ class docker_container():
         self.container = container
 
     def check_call(self, cmd, root=False, cwd=None):
+        env = {}
+
         params = [
                 "docker",
                 "exec",
                 "-ti",
             ]
 
-        if not root:
+        if root:
+            env["USER"] = "root"
+        else:
             params.extend(["--user", str(os.getuid())])
+            env["USER"] = str(os.getuid())
+
         if cwd is not None:
             params.extend(["--workdir", cwd])
+
+        for key, value in env.items():
+            params.extend(["-e", f"{key}={value}"])
 
         params.append(self.container)
         params.extend(cmd)
