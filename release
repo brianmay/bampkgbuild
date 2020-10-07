@@ -273,7 +273,8 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
         "dpkg-buildpackage",
         "--unsigned-source",
         "--unsigned-changes",
-        "--changes-option=-DDistribution=%s" % distribution
+        "--changes-option=-DDistribution=%s" % distribution,
+        "-sa"
     ]
 
     build = []
