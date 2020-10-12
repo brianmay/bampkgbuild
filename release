@@ -11,6 +11,7 @@ from email.utils import formatdate
 from debian import deb822
 from debian import changelog
 from contextlib import contextmanager
+from tempfile import NamedTemporaryFile
 import logging.config
 try:
     from colorlog import ColoredFormatter
@@ -49,6 +50,20 @@ class docker_container():
         params.append(self.container)
         params.extend(cmd)
         check_call(params)
+
+    @contextmanager
+    def create_file(self, whence, user=None):
+        with NamedTemporaryFile() as tmp_file:
+            yield tmp_file
+            tmp_file.flush()
+            check_call(
+                [
+                    'docker',
+                    'cp',
+                    tmp_file.name,
+                    f"{self.container}:{whence}",
+                ]
+            )
 
 
 class docker():
@@ -291,6 +306,12 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
     params.append("--build=" + ",".join(build))
 
     with docker(chroot_name) as chroot:
+        if extra_repo is not None:
+            name = '/etc/apt/sources.list.d/extra_repo.list'
+            with chroot.create_file(name, user='root') as f:
+                data = "%s\n" % (extra_repo)
+                f.write(data.encode('ASCII'))
+
         chroot.check_call(["mkdir", "-p", dst_dir])
         chroot.check_call(["dpkg-source", "-x", dsc_path, build_dir], cwd=dst_dir)
         chroot.check_call(["apt-get", "update", "--yes"], root=True)
@@ -671,15 +692,15 @@ def main():
                     changes_file = deb_build(
                         tmp_dir, tmp_dsc_path, build_chroot,
                         upload_distribution, architecture, True, arch_all, source,
-                        "deb http://localhost:9999/people %s main"
-                        % distribution)
+                        "deb http://proxy.pri:9999/people %s main" % distribution,
+                    )
                     if changes_file is not None:
                         deb_sign(changes_file)
                         if distribution == "sid":
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test,
-                                 "deb http://localhost:9999/people %s main"
-                                 % distribution)
+                             "deb http://proxy.pri:9999/people %s main" % distribution,
+                         )
                         if args.upload:
                             deb_upload(server, args.delayed, changes_file)
                     arch_all = False
@@ -731,7 +752,8 @@ def main():
                     changes_file = deb_build(
                         tmp_dir, tmp_dsc_path, build_chroot,
                         upload_distribution, architecture, True, arch_all, source,
-                        None)
+                        f"deb http://proxy.pri:9999/security {real_distribution}/updates main",
+                    )
                     if changes_file is not None:
                         deb_sign(changes_file)
                         if distribution in ["sid", "experimental"]:
