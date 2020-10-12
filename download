@@ -156,7 +156,7 @@ def main():
     setup_logging()
 
     parser = argparse.ArgumentParser(
-        description="Download Debian source package.")
+        description="Download Debian source/binary packages.")
 
     parser.add_argument(
         "--distribution",
