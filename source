@@ -183,15 +183,15 @@ def main():
     )
 
     parser.add_argument(
-        "source",
-        help="source package",
+        "package",
+        nargs='+',
+        help="package",
     )
 
     args = parser.parse_args()
 
     distribution = args.distribution
     architecture = args.architecture
-    source = args.source
     chroot = f"brianmay/debian-{architecture}:{distribution}"
 
     with docker(chroot) as chroot:
@@ -205,7 +205,14 @@ def main():
                 f.write(data.encode('ASCII'))
 
         chroot.check_call(["apt-get", "update"], root=True)
-        chroot.check_call(["apt-get", "source", source], root=True)
+
+        for package in args.package:
+            if package.startswith("src:"):
+                source = package[4:]
+                chroot.check_call(["apt-get", "source", source], root=True)
+            else:
+                chroot.check_call(["apt-get", "download", package], root=True)
+
         chroot.get_files("/build/.", ".")
 
 
