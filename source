@@ -1,0 +1,213 @@
+#!/usr/bin/python3
+import argparse
+import os
+import logging.config
+import subprocess
+from contextlib import contextmanager
+from tempfile import NamedTemporaryFile
+
+try:
+    from colorlog import ColoredFormatter
+except ImportError:
+    ColoredFormatter = None
+
+
+logger = logging.getLogger(__name__)
+
+
+class docker_container():
+    def __init__(self, container):
+        self.container = container
+
+    def check_call(self, cmd, root=False, cwd=None):
+        env = {}
+
+        params = [
+                "docker",
+                "exec",
+                "-ti",
+            ]
+
+        if root:
+            env["USER"] = "root"
+        else:
+            params.extend(["--user", str(os.getuid())])
+            env["USER"] = str(os.getuid())
+
+        if cwd is not None:
+            params.extend(["--workdir", cwd])
+
+        for key, value in env.items():
+            params.extend(["-e", f"{key}={value}"])
+
+        params.append(self.container)
+        params.extend(cmd)
+        check_call(params)
+
+    @contextmanager
+    def create_file(self, whence, user=None):
+        with NamedTemporaryFile() as tmp_file:
+            yield tmp_file
+            tmp_file.flush()
+            check_call(
+                [
+                    'docker',
+                    'cp',
+                    tmp_file.name,
+                    f"{self.container}:{whence}",
+                ]
+            )
+
+    def get_files(self, src, dst):
+        check_call(
+            [
+                'docker',
+                'cp',
+                f"{self.container}:{src}",
+                dst
+            ]
+        )
+
+
+class docker():
+    def __init__(self, chroot_name):
+        self.chroot_name = chroot_name
+
+    def __enter__(self):
+        self.container = check_output([
+            "docker",
+            "create",
+            "-t",
+            "-i",
+            "-v", "/tmp:/tmp",
+            self.chroot_name,
+        ]).strip().decode()
+
+        check_call(
+            [
+                "docker",
+                "start",
+                self.container,
+            ]
+        )
+
+        docker = docker_container(self.container)
+        return docker
+
+    def __exit__(self, type, value, traceback):
+        check_call(
+            [
+                "docker",
+                "kill",
+                self.container,
+            ]
+        )
+
+        check_call(
+            [
+                "docker",
+                "rm",
+                self.container,
+            ]
+        )
+
+
+def setup_logging():
+    if ColoredFormatter is not None:
+        formatter = ColoredFormatter(
+            "\n%(log_color)s%(asctime)s %(levelname)-8s %(message)s",
+            datefmt="%m-%d %H:%M",
+            reset=True,
+            log_colors={
+                'DEBUG':    'cyan',
+                'INFO':     'green',
+                'WARNING':  'yellow',
+                'ERROR':    'red',
+                'CRITICAL': 'red',
+            }
+        )
+    else:
+        formatter = logging.Formatter(
+            "\n%(asctime)s %(levelname)-8s "
+            "%(message)s",
+            datefmt="%m-%d %H:%M",
+        )
+
+    console = logging.StreamHandler()
+    console.setLevel(logging.DEBUG)
+    console.setFormatter(formatter)
+
+    root = logging.getLogger('')
+    root.setLevel(logging.DEBUG)
+    root.addHandler(console)
+
+
+def check_call(cmd):
+    logger.debug(" ".join(cmd))
+    return subprocess.check_call(cmd)
+
+
+def check_output(cmd):
+    logger.debug(" ".join(cmd))
+    return subprocess.check_output(cmd)
+
+
+def main():
+    setup_logging()
+
+    parser = argparse.ArgumentParser(
+        description="Download Debian source package.")
+
+    parser.add_argument(
+        "--distribution",
+        choices=[
+                 'jessie',
+                 'stretch',
+                 'sid', 'experimental',
+                 ],
+        required=True,
+        help="distribution",
+    )
+
+    parser.add_argument(
+        "--architecture",
+        choices=['i386', 'amd64'],
+        required=True,
+        help="architecture",
+    )
+
+    parser.add_argument(
+        "--security",
+        action="store_true",
+        help="add security support",
+    )
+
+    parser.add_argument(
+        "source",
+        help="source package",
+    )
+
+    args = parser.parse_args()
+
+    distribution = args.distribution
+    architecture = args.architecture
+    source = args.source
+    chroot = f"brianmay/debian-{architecture}:{distribution}"
+
+    with docker(chroot) as chroot:
+        if args.security:
+            name = '/etc/apt/sources.list.d/extra_repo.list'
+            with chroot.create_file(name, user='root') as f:
+                data = (
+                    "deb http://proxy.pri:9999/security "
+                    f"{distribution}/updates main\n"
+                )
+                f.write(data.encode('ASCII'))
+
+        chroot.check_call(["apt-get", "update"], root=True)
+        chroot.check_call(["apt-get", "source", source], root=True)
+        chroot.get_files("/build/.", ".")
+
+
+if __name__ == "__main__":
+    main()
