@@ -1,10 +1,7 @@
 #!/usr/bin/python3
 import argparse
-import os
 import logging.config
-import subprocess
-from contextlib import contextmanager
-from tempfile import NamedTemporaryFile
+from bampkgbuild.docker import docker
 
 try:
     from colorlog import ColoredFormatter
@@ -13,103 +10,6 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
-
-
-class docker_container():
-    def __init__(self, container):
-        self.container = container
-
-    def check_call(self, cmd, root=False, cwd=None):
-        env = {}
-
-        params = [
-                "docker",
-                "exec",
-                "-ti",
-            ]
-
-        if root:
-            env["USER"] = "root"
-        else:
-            params.extend(["--user", str(os.getuid())])
-            env["USER"] = str(os.getuid())
-
-        if cwd is not None:
-            params.extend(["--workdir", cwd])
-
-        for key, value in env.items():
-            params.extend(["-e", f"{key}={value}"])
-
-        params.append(self.container)
-        params.extend(cmd)
-        check_call(params)
-
-    @contextmanager
-    def create_file(self, whence, user=None):
-        with NamedTemporaryFile() as tmp_file:
-            yield tmp_file
-            tmp_file.flush()
-            check_call(
-                [
-                    'docker',
-                    'cp',
-                    tmp_file.name,
-                    f"{self.container}:{whence}",
-                ]
-            )
-
-    def get_files(self, src, dst):
-        check_call(
-            [
-                'docker',
-                'cp',
-                f"{self.container}:{src}",
-                dst
-            ]
-        )
-
-
-class docker():
-    def __init__(self, chroot_name):
-        self.chroot_name = chroot_name
-
-    def __enter__(self):
-        self.container = check_output([
-            "docker",
-            "create",
-            "-t",
-            "-i",
-            "-v", "/tmp:/tmp",
-            self.chroot_name,
-        ]).strip().decode()
-
-        check_call(
-            [
-                "docker",
-                "start",
-                self.container,
-            ]
-        )
-
-        docker = docker_container(self.container)
-        return docker
-
-    def __exit__(self, type, value, traceback):
-        check_call(
-            [
-                "docker",
-                "kill",
-                self.container,
-            ]
-        )
-
-        check_call(
-            [
-                "docker",
-                "rm",
-                self.container,
-            ]
-        )
 
 
 def setup_logging():
@@ -140,16 +40,6 @@ def setup_logging():
     root = logging.getLogger('')
     root.setLevel(logging.DEBUG)
     root.addHandler(console)
-
-
-def check_call(cmd):
-    logger.debug(" ".join(cmd))
-    return subprocess.check_call(cmd)
-
-
-def check_output(cmd):
-    logger.debug(" ".join(cmd))
-    return subprocess.check_output(cmd)
 
 
 def main():
@@ -210,6 +100,23 @@ def main():
             if package.startswith("src:"):
                 source = package[4:]
                 chroot.check_call(["apt-get", "source", source], root=True)
+            elif package.startswith("bin:"):
+                source = package[4:]
+                output = chroot.check_output(
+                    [
+                        "grep-aptavail",
+                        "--no-field-names",
+                        "--show-field", "Package",
+                        "-Sr", fr"^{source}\($\| \)"
+                    ],
+                    root=True
+                )
+                output = output.decode()
+                binaries = output.split("\r\n")
+                binaries = filter(None, binaries)
+                binaries = set(binaries)
+                for binary in binaries:
+                    chroot.check_call(["apt-get", "download", binary], root=True)
             else:
                 chroot.check_call(["apt-get", "download", package], root=True)
 
