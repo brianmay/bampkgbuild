@@ -56,26 +56,40 @@ def main():
                  'sid', 'experimental',
                  ],
         required=True,
-        help="distribution",
+        help="The distribution to use.",
     )
 
     parser.add_argument(
         "--architecture",
         choices=['i386', 'amd64'],
         required=True,
-        help="architecture",
+        help="The build Architecture.",
     )
 
     parser.add_argument(
         "--security",
         action="store_true",
-        help="add security support",
+        help="Add security support.",
+    )
+
+    parser.add_argument(
+        "--download",
+        choices=[
+                 'binary',
+                 'source',
+                 'binaries',
+                 ],
+        required=True,
+        help="What do download.",
     )
 
     parser.add_argument(
         "package",
         nargs='+',
-        help="package",
+        help=(
+            "What packages. If --download=binary, this must "
+            "be a binary package. Otherwise a source package is expected.",
+        )
     )
 
     args = parser.parse_args()
@@ -97,17 +111,15 @@ def main():
         chroot.check_call(["apt-get", "update"], root=True)
 
         for package in args.package:
-            if package.startswith("src:"):
-                source = package[4:]
-                chroot.check_call(["apt-get", "source", source], root=True)
-            elif package.startswith("bin:"):
-                source = package[4:]
+            if args.download == "source":
+                chroot.check_call(["apt-get", "source", package], root=True)
+            elif args.download == "binaries":
                 output = chroot.check_output(
                     [
                         "grep-aptavail",
                         "--no-field-names",
                         "--show-field", "Package",
-                        "-Sr", fr"^{source}\($\| \)"
+                        "-Sr", fr"^{package}\($\| \)"
                     ],
                     root=True
                 )
@@ -117,8 +129,10 @@ def main():
                 binaries = set(binaries)
                 for binary in binaries:
                     chroot.check_call(["apt-get", "download", binary], root=True)
-            else:
+            elif args.download == "binary":
                 chroot.check_call(["apt-get", "download", package], root=True)
+            else:
+                raise RuntimeError("Invalid value of args.download")
 
         chroot.get_files("/build/.", ".")
 
