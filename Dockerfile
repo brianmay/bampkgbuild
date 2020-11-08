@@ -4,8 +4,11 @@ FROM ${IMAGE}
 ARG IMAGE
 ENV IMAGE ${IMAGE}
 
-RUN sed -i 's/deb.debian.org/proxy.pri:9999/' /etc/apt/sources.list
-RUN cat /etc/apt/sources.list | sed 's/^deb /deb-src /' > /etc/apt/sources.list.d/src.list
+RUN \
+ DIST="$(echo "$IMAGE" | sed "s/^.*://")"; \
+ echo "deb http://proxy.pri:9999/debian $DIST main\ndeb-src http://proxy.pri:9999/debian $DIST main" \
+ > /etc/apt/sources.list
+
 RUN apt-get update && apt-get install -y \
     build-essential \
     devscripts \
