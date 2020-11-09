@@ -220,6 +220,8 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
                 data = "%s\n" % (extra_repo)
                 f.write(data.encode('ASCII'))
 
+        chroot.check_call(["useradd", "--uid", str(os.getuid()), "build"], root=True)
+
         chroot.check_call(["mkdir", "-p", dst_dir])
         chroot.check_call(["dpkg-source", "-x", dsc_path, build_dir], cwd=dst_dir)
         chroot.check_call(["apt-get", "update", "--yes"], root=True)
