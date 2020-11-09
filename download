@@ -51,9 +51,10 @@ def main():
     parser.add_argument(
         "--distribution",
         choices=[
-                 'jessie',
-                 'stretch',
-                 'sid', 'experimental',
+                 'stretch', 'stretch-security',
+                 'buster', 'buster-security',
+                 'bullseye',
+                 'sid',
                  ],
         required=True,
         help="The distribution to use.",
@@ -64,12 +65,6 @@ def main():
         choices=['i386', 'amd64'],
         required=True,
         help="The build Architecture.",
-    )
-
-    parser.add_argument(
-        "--security",
-        action="store_true",
-        help="Add security support.",
     )
 
     parser.add_argument(
@@ -99,16 +94,8 @@ def main():
     chroot = f"brianmay/debian-{architecture}:{distribution}"
 
     with docker(chroot) as chroot:
-        if args.security:
-            name = '/etc/apt/sources.list.d/extra_repo.list'
-            with chroot.create_file(name, user='root') as f:
-                data = (
-                    "deb http://proxy.pri:9999/security "
-                    f"{distribution}/updates main\n"
-                )
-                f.write(data.encode('ASCII'))
-
-        chroot.check_call(["apt-get", "update"], root=True)
+        chroot.check_call(["apt-get", "update", "--yes"], root=True)
+        chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
 
         for package in args.package:
             if args.download == "source":
