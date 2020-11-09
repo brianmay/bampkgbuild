@@ -567,7 +567,7 @@ def main():
         if 'debian' in distros:
             distributions.add("sid")
         if 'people' in distros:
-            distributions.add("wheezy-security")
+            distributions.add("stretch-security")
 
     architectures = set(args.architectures)
     if len(architectures) == 0:
@@ -575,21 +575,18 @@ def main():
 
     if 'people' in distros:
         build = []
-        if 'wheezy-security' in distributions:
-            build.append('wheezy-security')
-        if 'jessie-security' in distributions:
-            build.append('jessie-security')
         if 'stretch-security' in distributions:
             build.append('stretch-security')
+        if 'buster-security' in distributions:
+            build.append('buster-security')
 
         for distribution in build:
             source = True
             arch_all = True
 
-            split = distribution.split("-")
-            real_distribution = split[0]
-
+            real_distribution = distribution
             upload_distribution = distribution
+
             if upload_distribution == "sid":
                 upload_distribution = "unstable"
 
@@ -641,17 +638,15 @@ def main():
         for distribution in build:
             arch_all = True
 
-            split = distribution.split("-")
-            real_distribution = split[0]
-
+            real_distribution = distribution
             upload_distribution = distribution
+
             if upload_distribution == "sid":
                 upload_distribution = "unstable"
             elif upload_distribution == "experimental":
                 real_distribution = "sid"
-            elif real_distribution == "testing":
-                real_distribution = "stretch"
 
+            split = distribution.split("-")
             server = "ftp-master"
             if split[-1] == "security":
                 server = "security-master"
@@ -664,7 +659,7 @@ def main():
                     changes_file = deb_build(
                         tmp_dir, tmp_dsc_path, build_chroot,
                         upload_distribution, architecture, True, arch_all, source,
-                        f"deb http://proxy.pri:9999/security {real_distribution}/updates main",
+                        None,
                     )
                     if changes_file is not None:
                         deb_sign(changes_file)

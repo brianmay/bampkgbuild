@@ -1,7 +1,29 @@
 #!/bin/sh
 set -ex
-for d in stretch buster bullseye sid; do
-    docker build --build-arg IMAGE=i386/debian:$d -t brianmay/debian-i386:$d .
-    docker build --build-arg IMAGE=debian:$d -t brianmay/debian-amd64:$d .
-    docker build --build-arg IMAGE=debian:$d -t brianmay/debian-source:$d .
+
+build() {
+    src="$1"
+    dst="$2"
+    dist="$3"
+
+    docker build --build-arg IMAGE="$src" --build-arg DISTRIBUTION="$dist" -t "$dst" .
+}
+
+build_security() {
+    src="$1"
+    dst="$2"
+
+    docker build --build-arg IMAGE="$src" -t "$dst" --file=Dockerfile-security .
+}
+
+for d in stretch buster bullseye; do
+    build "i386/debian:$d" "brianmay/debian-i386:$d" "$d"
+    build "debian:$d" "brianmay/debian-amd64:$d" "$d"
+    build "debian:$d" "brianmay/debian-source:$d" "$d"
+done
+
+for d in stretch buster; do
+    build_security "brianmay/debian-i386:$d" "brianmay/debian-i386:$d-security"
+    build_security "brianmay/debian-amd64:$d" "brianmay/debian-amd64:$d-security"
+    build_security "brianmay/debian-source:$d" "brianmay/debian-source:$d-security"
 done
