@@ -623,17 +623,14 @@ def main():
         build = []
         source_upload = True
         if 'stretch' in distributions:
-            source_upload = False
             build.append('stretch')
             if args.upload:
                 raise RuntimeError("Cannot upload to stretch")
         if 'buster' in distributions:
-            source_upload = False
             build.append('buster')
             if args.upload:
                 raise RuntimeError("Cannot upload to buster")
         if 'bullseye' in distributions:
-            source_upload = False
             build.append('bullseye')
             if args.upload:
                 raise RuntimeError("Cannot upload to bullseye")
