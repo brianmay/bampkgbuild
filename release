@@ -520,12 +520,14 @@ def main():
 
     parser.add_argument(
         "--distributions",
-        choices=['wheezy-security',
-                 'jessie', 'jessie-security',
+        choices=[
                  'stretch', 'stretch-security',
+                 'buster', 'buster-security',
+                 'bullseye',
                  'sid', 'experimental',
                  'xenial',
-                 'fedora20', 'centos6', 'centos7'],
+                 'fedora20', 'centos6', 'centos7'
+                ],
         action="append",
         default=[],
         help="build distributions")
@@ -620,15 +622,27 @@ def main():
     if 'debian' in distros:
         build = []
         source_upload = True
-        if 'wheezy-security' in distributions:
+        if 'stretch' in distributions:
             source_upload = False
-            build.append('wheezy-security')
-        if 'jessie-security' in distributions:
+            build.append('stretch')
+            if args.upload:
+                raise RuntimeError("Cannot upload to stretch")
+        if 'buster' in distributions:
             source_upload = False
-            build.append('jessie-security')
+            build.append('buster')
+            if args.upload:
+                raise RuntimeError("Cannot upload to buster")
+        if 'bullseye' in distributions:
+            source_upload = False
+            build.append('bullseye')
+            if args.upload:
+                raise RuntimeError("Cannot upload to bullseye")
         if 'stretch-security' in distributions:
             source_upload = False
             build.append('stretch-security')
+        if 'buster-security' in distributions:
+            source_upload = False
+            build.append('buster-security')
         if 'sid' in distributions:
             build.append('sid')
         if 'experimental' in distributions:
