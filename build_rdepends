@@ -1,0 +1,130 @@
+#!/usr/bin/python3
+import argparse
+import logging.config
+import sys
+import contextlib
+from bampkgbuild.docker import docker
+
+try:
+    from colorlog import ColoredFormatter
+except ImportError:
+    ColoredFormatter = None
+
+
+logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def smart_open(filename=None):
+    if filename and filename != '-':
+        fh = open(filename, 'w')
+    else:
+        fh = sys.stdout
+
+    try:
+        yield fh
+    finally:
+        if fh is not sys.stdout:
+            fh.close()
+
+def setup_logging():
+    if ColoredFormatter is not None:
+        formatter = ColoredFormatter(
+            "\n%(log_color)s%(asctime)s %(levelname)-8s %(message)s",
+            datefmt="%m-%d %H:%M",
+            reset=True,
+            log_colors={
+                'DEBUG':    'cyan',
+                'INFO':     'green',
+                'WARNING':  'yellow',
+                'ERROR':    'red',
+                'CRITICAL': 'red',
+            }
+        )
+    else:
+        formatter = logging.Formatter(
+            "\n%(asctime)s %(levelname)-8s "
+            "%(message)s",
+            datefmt="%m-%d %H:%M",
+        )
+
+    console = logging.StreamHandler()
+    console.setLevel(logging.DEBUG)
+    console.setFormatter(formatter)
+
+    root = logging.getLogger('')
+    root.setLevel(logging.DEBUG)
+    root.addHandler(console)
+
+
+def main():
+    setup_logging()
+
+    parser = argparse.ArgumentParser(
+        description="Get debian reverse build depends.")
+
+    parser.add_argument(
+        "--distribution",
+        choices=[
+                 'stretch', 'stretch-security',
+                 'buster', 'buster-security',
+                 'bullseye',
+                 'sid',
+                 ],
+        required=True,
+        help="The distribution to use.",
+    )
+
+    parser.add_argument(
+        "--architecture",
+        choices=['i386', 'amd64'],
+        required=True,
+        help="The build Architecture.",
+    )
+
+    parser.add_argument(
+        "--output",
+        help="Write output to this file",
+    )
+
+
+    parser.add_argument(
+        "package",
+        nargs='+',
+        help=(
+            "What binary packages.",
+        )
+    )
+
+    args = parser.parse_args()
+
+    distribution = args.distribution
+    architecture = args.architecture
+    chroot = f"brianmay/debian-{architecture}:{distribution}"
+
+    with docker(chroot) as chroot:
+        chroot.check_call(["apt-get", "update", "--yes"], root=True)
+        chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
+
+        with smart_open(args.output) as fh:
+            for package in args.package:
+                output = chroot.check_output(
+                    [
+                        "grep-sources",
+                        "--no-field-names",
+                        "--show-field", "Package",
+                        "-F", "Build-Depends,Build-Depends-Indep",
+                        package
+                    ],
+                    root=True
+                )
+                output = output.decode()
+                binaries = output.split("\r\n")
+                binaries = filter(None, binaries)
+                binaries = set(binaries)
+                for binary in binaries:
+                    print(binary, file=fh)
+
+
+if __name__ == "__main__":
+    main()

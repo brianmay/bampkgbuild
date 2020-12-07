@@ -1,0 +1,3 @@
+#!/bin/sh
+set -e
+lz4cat /var/lib/apt/lists/*Sources.lz4 | grep-dctrl "$@"
