@@ -281,7 +281,7 @@ def rpm_build(tmp_dir, dsc_path, spec_path, chroot_name,
     with docker(chroot_name) as chroot:
         chroot.check_call([
             "yum-builddep", "-y",
-            spec_path], user="root")
+            spec_path], root=True)
 
         chroot.check_call([
             "rpmbuild",
@@ -321,7 +321,7 @@ def deb_test(changes_file, chroot, test_mode, extra_repo):
     elif test_mode == "manual_no_unpack":
         build_dir = os.path.dirname(changes_file)
         with docker(chroot) as chroot:
-            chroot.check_call(["bash"], cwd=build_dir, user="root")
+            chroot.check_call(["bash"], cwd=build_dir, root=True)
         return
 
     build_dir = os.path.dirname(changes_file)
