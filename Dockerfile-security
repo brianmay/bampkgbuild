@@ -2,7 +2,7 @@ ARG IMAGE
 FROM ${IMAGE}
 
 RUN \
- echo "deb http://proxy.pri:9999/security ${DISTRIBUTION}/updates main" \
+ echo "deb http://192.168.2.122:9999/security ${DISTRIBUTION}/updates main" \
  >> /etc/apt/sources.list
 
 RUN apt-get update --yes && apt-get upgrade --yes \
