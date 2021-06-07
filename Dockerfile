@@ -5,7 +5,7 @@ ARG IMAGE
 ARG DISTRIBUTION
 
 RUN \
- echo "deb http://192.168.2.122:9999/debian ${DISTRIBUTION} main\ndeb-src http://192.168.2.122:9999/debian ${DISTRIBUTION} main" \
+ echo "deb http://172.17.0.1:9999/debian ${DISTRIBUTION} main\ndeb-src http://172.17.0.1:9999/debian ${DISTRIBUTION} main" \
  > /etc/apt/sources.list
 
 RUN cat /etc/apt/sources.list
