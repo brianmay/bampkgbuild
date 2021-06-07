@@ -6,6 +6,7 @@ build() {
     dst="$2"
     dist="$3"
 
+    docker pull "$src"
     docker build --build-arg IMAGE="$src" --build-arg DISTRIBUTION="$dist" -t "$dst" .
 }
 
