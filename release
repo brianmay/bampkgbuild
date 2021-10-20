@@ -523,9 +523,8 @@ def main():
     parser.add_argument(
         "--distributions",
         choices=[
-                 'stretch', 'stretch-security',
                  'buster', 'buster-security',
-                 'bullseye',
+                 'bullseye', 'bullseye-security',
                  'sid', 'experimental',
                  'xenial',
                  'fedora20', 'centos6', 'centos7'
@@ -624,10 +623,6 @@ def main():
     if 'debian' in distros:
         build = []
         source_upload = True
-        if 'stretch' in distributions:
-            build.append('stretch')
-            if args.upload:
-                raise RuntimeError("Cannot upload to stretch")
         if 'buster' in distributions:
             build.append('buster')
             if args.upload:
@@ -636,9 +631,9 @@ def main():
             build.append('bullseye')
             if args.upload:
                 raise RuntimeError("Cannot upload to bullseye")
-        if 'stretch-security' in distributions:
+        if 'bullseye-security' in distributions:
             source_upload = False
-            build.append('stretch-security')
+            build.append('bullseye-security')
         if 'buster-security' in distributions:
             source_upload = False
             build.append('buster-security')

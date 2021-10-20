@@ -66,9 +66,8 @@ def main():
     parser.add_argument(
         "--distribution",
         choices=[
-                 'stretch', 'stretch-security',
                  'buster', 'buster-security',
-                 'bullseye',
+                 'bullseye', 'bullseye-security',
                  'sid',
                  ],
         required=True,
