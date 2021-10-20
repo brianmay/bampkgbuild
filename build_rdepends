@@ -27,6 +27,7 @@ def smart_open(filename=None):
         if fh is not sys.stdout:
             fh.close()
 
+
 def setup_logging():
     if ColoredFormatter is not None:
         formatter = ColoredFormatter(
@@ -85,7 +86,6 @@ def main():
         "--output",
         help="Write output to this file",
     )
-
 
     parser.add_argument(
         "package",
