@@ -13,8 +13,9 @@ build() {
 build_security() {
     src="$1"
     dst="$2"
+    dockerfile="$3"
 
-    docker build --build-arg IMAGE="$src" -t "$dst" --file=Dockerfile-security .
+    docker build --build-arg IMAGE="$src" -t "$dst" --file="$dockerfile" .
 }
 
 for d in buster bullseye sid; do
@@ -23,8 +24,14 @@ for d in buster bullseye sid; do
     build "debian:$d" "brianmay/debian-source:$d" "$d"
 done
 
-for d in buster bullseye; do
-    build_security "brianmay/debian-i386:$d" "brianmay/debian-i386:$d-security"
-    build_security "brianmay/debian-amd64:$d" "brianmay/debian-amd64:$d-security"
-    build_security "brianmay/debian-source:$d" "brianmay/debian-source:$d-security"
+for d in buster; do
+    build_security "brianmay/debian-i386:$d" "brianmay/debian-i386:$d-security" Dockerfile-security
+    build_security "brianmay/debian-amd64:$d" "brianmay/debian-amd64:$d-security" Dockerfile-security
+    build_security "brianmay/debian-source:$d" "brianmay/debian-source:$d-security" Dockerfile-security
+done
+
+for d in bullseye; do
+    build_security "brianmay/debian-i386:$d" "brianmay/debian-i386:$d-security" Dockerfile-security-bullseye
+    build_security "brianmay/debian-amd64:$d" "brianmay/debian-amd64:$d-security" Dockerfile-security-bullseye
+    build_security "brianmay/debian-source:$d" "brianmay/debian-source:$d-security" Dockerfile-security-bullseye
 done
