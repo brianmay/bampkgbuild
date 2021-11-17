@@ -228,7 +228,7 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
             chroot.check_call(["apt-get", "update", "--yes"], root=True)
             chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
             chroot.check_call(["apt-get-build-depends", "--yes"], cwd=build_dir, root=True)
-            chroot.check_call(params, cwd=build_dir)
+            chroot.check_call(params, cwd=build_dir, user="build")
         except Exception:
             chroot.check_call(["bash"], cwd=build_dir, root=True)
             raise

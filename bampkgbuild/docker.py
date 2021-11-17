@@ -11,7 +11,7 @@ class docker_container():
     def __init__(self, container):
         self.container = container
 
-    def _get_params(self, cmd, root, cwd):
+    def _get_params(self, cmd, user, cwd):
         env = {}
         params = [
                 "docker",
@@ -19,8 +19,9 @@ class docker_container():
                 "-ti",
             ]
 
-        if root:
-            env["USER"] = "root"
+        if user is not None:
+            params.extend(["--user", user])
+            env["USER"] = user
         else:
             params.extend(["--user", str(os.getuid())])
             env["USER"] = str(os.getuid())
@@ -35,12 +36,16 @@ class docker_container():
         params.extend(cmd)
         return params
 
-    def check_call(self, cmd, root=False, cwd=None):
-        params = self._get_params(cmd, root, cwd)
+    def check_call(self, cmd, user=None, root=False, cwd=None):
+        if root:
+            user = "root"
+        params = self._get_params(cmd, user, cwd)
         return check_call(params)
 
-    def check_output(self, cmd, root=False, cwd=None):
-        params = self._get_params(cmd, root, cwd)
+    def check_output(self, cmd, user=None, root=False, cwd=None):
+        if root:
+            user = "root"
+        params = self._get_params(cmd, user, cwd)
         return check_output(params)
 
     @contextmanager
