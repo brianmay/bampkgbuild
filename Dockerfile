@@ -3,13 +3,26 @@ FROM ${IMAGE}
 
 ARG IMAGE
 ARG DISTRIBUTION
+ARG SECURITY
 
 RUN \
- echo "deb http://172.17.0.1:9999/debian ${DISTRIBUTION} main\ndeb-src http://172.17.0.1:9999/debian ${DISTRIBUTION} main" \
+ echo "deb http://172.17.0.1:9999/debian ${DISTRIBUTION} main" \
  > /etc/apt/sources.list
 
+RUN \
+ if test "$SECURITY" = "pre-bullseye"; then \
+     echo "deb http://172.17.0.1:9999/security ${DISTRIBUTION}/updates main" \
+     >> /etc/apt/sources.list; \
+ fi
+
+RUN \
+ if test "$SECURITY" = "bullseye"; then \
+     echo "deb http://172.17.0.1:9999/security ${DISTRIBUTION}-security main" \
+     >> /etc/apt/sources.list; \
+ fi
+
 RUN cat /etc/apt/sources.list
-RUN apt-get update --yes && apt-get install --yes \
+RUN apt-get update --yes && apt-get upgrade --yes && apt-get install --yes \
     build-essential \
     devscripts \
     haskell-debian-utils \
