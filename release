@@ -67,7 +67,7 @@ def deb_build_src(src_dir):
         with chdir(src_dir):
             check_call([
                 "gbp", "buildpackage",
-                "--git-ignore-branch", "--git-ignore-new",
+                # "--git-ignore-branch", "--git-ignore-new",
                 "--git-builder=debuild --no-lintian -i -I -S -nc",
                 "--no-check-builddeps",
             ])
