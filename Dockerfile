@@ -28,6 +28,7 @@ RUN apt-get update --yes && apt-get upgrade --yes && apt-get install --yes \
     haskell-debian-utils \
     locales \
     liblz4-tool \
+    lintian \
  && rm -rf /var/lib/apt/lists/*
 
 RUN sed -i -e 's/# en_AU.UTF-8 UTF-8/en_AU.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
