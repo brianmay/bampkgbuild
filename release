@@ -13,6 +13,7 @@ from debian import changelog
 from contextlib import contextmanager
 import logging.config
 from bampkgbuild.docker import docker
+
 try:
     from colorlog import ColoredFormatter
 except ImportError:
@@ -29,17 +30,16 @@ def setup_logging():
             datefmt="%m-%d %H:%M",
             reset=True,
             log_colors={
-                'DEBUG':    'cyan',
-                'INFO':     'green',
-                'WARNING':  'yellow',
-                'ERROR':    'red',
-                'CRITICAL': 'red',
-            }
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red",
+            },
         )
     else:
         formatter = logging.Formatter(
-            "\n%(asctime)s %(levelname)-8s "
-            "%(message)s",
+            "\n%(asctime)s %(levelname)-8s " "%(message)s",
             datefmt="%m-%d %H:%M",
         )
 
@@ -47,7 +47,7 @@ def setup_logging():
     console.setLevel(logging.DEBUG)
     console.setFormatter(formatter)
 
-    root = logging.getLogger('')
+    root = logging.getLogger("")
     root.setLevel(logging.DEBUG)
     root.addHandler(console)
 
@@ -63,34 +63,32 @@ def deb_build_src(src_dir):
     parent_dir = os.path.join(src_dir, "..")
 
     if os.path.isdir(os.path.join(src_dir, ".git")):
-
         with chdir(src_dir):
-            check_call([
-                "gbp", "buildpackage",
-                # "--git-ignore-branch", "--git-ignore-new",
-                "--git-builder=debuild --no-lintian -i -I -S -nc",
-                "--no-check-builddeps",
-            ])
+            check_call(
+                [
+                    "gbp",
+                    "buildpackage",
+                    # "--git-ignore-branch", "--git-ignore-new",
+                    "--git-builder=debuild --no-lintian -i -I -S -nc",
+                    "--no-check-builddeps",
+                ]
+            )
 
     else:
         src_abs = os.path.abspath(src_dir)
         src_name = os.path.basename(src_abs)
 
         with chdir(parent_dir):
-
-            check_call([
-                "dpkg-source",
-                "-b", src_name])
+            check_call(["dpkg-source", "-b", src_name])
 
     # remove epoch for filename
-    version = re.sub(r'^\d+:', '', str(cl.version), 1)
+    version = re.sub(r"^\d+:", "", str(cl.version), 1)
     dsc_file = "%s_%s.dsc" % (cl.package, version)
     dsc_file = os.path.join(parent_dir, dsc_file)
     return dsc_file
 
 
 def deb_copy_source(tmp_dir, dsc_path):
-
     src_dir = os.path.dirname(dsc_path)
     dst_dir = tmp_dir
     dsc_file = os.path.basename(dsc_path)
@@ -101,9 +99,9 @@ def deb_copy_source(tmp_dir, dsc_path):
     dst_path = os.path.join(dst_dir, dsc_file)
     shutil.copyfile(src_path, dst_path)
 
-    for f in d['files']:
-        src_path = os.path.join(src_dir, f['name'])
-        dst_path = os.path.join(dst_dir, f['name'])
+    for f in d["files"]:
+        src_path = os.path.join(src_dir, f["name"])
+        dst_path = os.path.join(dst_dir, f["name"])
         shutil.copyfile(src_path, dst_path)
 
     dsc_path = os.path.join(dst_dir, dsc_file)
@@ -111,7 +109,6 @@ def deb_copy_source(tmp_dir, dsc_path):
 
 
 def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
-
     dsc_file = os.path.basename(dsc_path)
     build_dir = os.path.join(tmp_dir, "source")
 
@@ -133,9 +130,7 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
         offset = m.group(3)
         new_version = version_prefix + add_to_version + "+" + offset
 
-        if (version != new_version
-                or first_block.distributions != distribution):
-
+        if version != new_version or first_block.distributions != distribution:
             write_changelog = True
             first_block.version = new_version
             first_block.distributions = distribution
@@ -151,9 +146,9 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
             author="Brian May <bam@debian.org>",
             date=formatdate(),
         )
-        cl.add_change('')
+        cl.add_change("")
         cl.add_change("  * Rebuild for %s." % distribution)
-        cl.add_change('')
+        cl.add_change("")
 
     if write_changelog:
         cl.write_to_open_file(open(changelog_path, "w"))
@@ -164,30 +159,36 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
     control_file_tmp = "debian/control.tmp"
     control_path_tmp = os.path.join(build_dir, control_file_tmp)
 
-    with open(control_path, 'rb') as in_file:
+    with open(control_path, "rb") as in_file:
         with open(control_path_tmp, "wb") as out_file:
             for d in deb822.Deb822.iter_paragraphs(in_file):
-                d['Bugs'] = 'mailto:Brian May <brian@linuxpenguins.xyz>'
+                d["Bugs"] = "mailto:Brian May <brian@linuxpenguins.xyz>"
                 d.dump(out_file)
                 out_file.write(b"\n")
 
     os.rename(control_path_tmp, control_path)
 
     with chdir(tmp_dir):
-        check_call([
-            "dpkg-source",
-            "-b", "source"])
+        check_call(["dpkg-source", "-b", "source"])
 
-    version = re.sub(r'^\d+:', '', str(cl.version), 1)
+    version = re.sub(r"^\d+:", "", str(cl.version), 1)
     dsc_file = "%s_%s.dsc" % (cl.package, version)
     dsc_path = os.path.join(tmp_dir, dsc_file)
 
     return dsc_path
 
 
-def deb_build(tmp_dir, dsc_path, chroot_name,
-              distribution, architecture, arch_any, arch_all, source,
-              extra_repo):
+def deb_build(
+    tmp_dir,
+    dsc_path,
+    chroot_name,
+    distribution,
+    architecture,
+    arch_any,
+    arch_all,
+    source,
+    extra_repo,
+):
     dst_dir = os.path.join(tmp_dir, "build", architecture)
     dsc_path = os.path.abspath(dsc_path)
     build_dir = os.path.join(dst_dir, "source")
@@ -197,7 +198,7 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
         "--unsigned-source",
         "--unsigned-changes",
         "--changes-option=-DDistribution=%s" % distribution,
-        "-sa"
+        "-sa",
     ]
 
     build = []
@@ -215,10 +216,10 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
 
     with docker(chroot_name) as chroot:
         if extra_repo is not None:
-            name = '/etc/apt/sources.list.d/extra_repo.list'
-            with chroot.create_file(name, user='root') as f:
+            name = "/etc/apt/sources.list.d/extra_repo.list"
+            with chroot.create_file(name, user="root") as f:
                 data = "%s\n" % (extra_repo)
-                f.write(data.encode('ASCII'))
+                f.write(data.encode("ASCII"))
 
         chroot.check_call(["useradd", "--uid", str(os.getuid()), "build"], root=True)
 
@@ -227,7 +228,7 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
             chroot.check_call(["dpkg-source", "-x", dsc_path, build_dir], cwd=dst_dir)
             chroot.check_call(["apt-get", "update", "--yes"], root=True)
             chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
-            chroot.check_call(["apt-get-build-depends", "--yes"], cwd=build_dir, root=True)
+            chroot.check_call(["apt-get", "build-dep", "--yes", build_dir], root=True)
             chroot.check_call(params, cwd=build_dir, user="build")
         except Exception:
             chroot.check_call(["bash"], cwd=build_dir, root=True)
@@ -246,9 +247,16 @@ def deb_build(tmp_dir, dsc_path, chroot_name,
     return changes_file
 
 
-def rpm_build(tmp_dir, dsc_path, spec_path, chroot_name,
-              distribution, architecture, arch_all, source):
-
+def rpm_build(
+    tmp_dir,
+    dsc_path,
+    spec_path,
+    chroot_name,
+    distribution,
+    architecture,
+    arch_all,
+    source,
+):
     if spec_path is None:
         return None
 
@@ -259,16 +267,16 @@ def rpm_build(tmp_dir, dsc_path, spec_path, chroot_name,
     orig_name = None
     orig_path = None
 
-    for f in d['files']:
-        if f['name'].endswith('.orig.tar.gz'):
-            orig_name = f['name']
+    for f in d["files"]:
+        if f["name"].endswith(".orig.tar.gz"):
+            orig_name = f["name"]
             orig_path = os.path.join(dsc_dir, orig_name)
 
     assert orig_name is not None
     assert orig_path is not None
 
     dst_dir = os.path.join(tmp_dir, "SOURCES")
-    dst_name = orig_name.replace('.orig.tar.gz', '.tar.gz')
+    dst_name = orig_name.replace(".orig.tar.gz", ".tar.gz")
     dst_path = os.path.join(dst_dir, dst_name)
 
     if not os.path.isdir(dst_dir):
@@ -283,15 +291,11 @@ def rpm_build(tmp_dir, dsc_path, spec_path, chroot_name,
         source = "-bb"
 
     with docker(chroot_name) as chroot:
-        chroot.check_call([
-            "yum-builddep", "-y",
-            spec_path], root=True)
+        chroot.check_call(["yum-builddep", "-y", spec_path], root=True)
 
-        chroot.check_call([
-            "rpmbuild",
-            "--define", "_topdir "+tmp_dir,
-            source,
-            spec_path])
+        chroot.check_call(
+            ["rpmbuild", "--define", "_topdir " + tmp_dir, source, spec_path]
+        )
 
     return True
 
@@ -309,13 +313,22 @@ def deb_lint(changes_file, chroot):
     with docker(chroot) as chroot:
         chroot.check_call(["apt-get", "update", "--yes"], root=True)
         chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
-        chroot.check_call([
-            "apt-get", "--yes", "-oDpkg::Options::=--force-confold",
-            "install", "lintian"], root=True)
-#        chroot.check_call([
-#            "apt-get", "--yes", "-t", "experimental",
-#            "install", "lintian4python"], root=True)
+        chroot.check_call(
+            [
+                "apt-get",
+                "--yes",
+                "-oDpkg::Options::=--force-confold",
+                "install",
+                "lintian",
+            ],
+            root=True,
+        )
+        #        chroot.check_call([
+        #            "apt-get", "--yes", "-t", "experimental",
+        #            "install", "lintian4python"], root=True)
         chroot.check_call(["lintian", changes_file])
+
+
 #        chroot.check_call(["lintian4py", changes_file])
 
 
@@ -332,24 +345,24 @@ def deb_test(changes_file, chroot, test_mode, extra_repo):
     d = deb822.Changes(open(changes_file))
 
     debs = []
-    for f in d['files']:
-        if f['name'].endswith(".deb"):
-            debs.append(os.path.join(build_dir, f['name']))
+    for f in d["files"]:
+        if f["name"].endswith(".deb"):
+            debs.append(os.path.join(build_dir, f["name"]))
 
     with docker(chroot) as chroot:
         if extra_repo is not None:
-            name = '/etc/apt/sources.list.d/extra_repo.list'
-            with chroot.create_file(name, user='root') as f:
+            name = "/etc/apt/sources.list.d/extra_repo.list"
+            with chroot.create_file(name, user="root") as f:
                 data = "%s\n" % (extra_repo)
-                f.write(data.encode('ASCII'))
+                f.write(data.encode("ASCII"))
 
         chroot.check_call(["apt-get", "update", "--yes"], root=True)
         chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
         chroot.check_call(["dpkg", "--unpack", "--"] + debs, root=True)
         chroot.check_call(
-            ["apt-get", "--yes", "-f", "-oDpkg::Options::=--force-confold",
-                "install"],
-            root=True)
+            ["apt-get", "--yes", "-f", "-oDpkg::Options::=--force-confold", "install"],
+            root=True,
+        )
 
         if test_mode == "auto":
             pass
@@ -378,7 +391,7 @@ def deb_upload(server, delayed, changes_file):
     with open(changes_file) as f:
         changes = deb822.Changes(f)
 
-    unparsed = changes.get_as_string('Changes')
+    unparsed = changes.get_as_string("Changes")
     parsed = []
     for line in unparsed.split("\n"):
         if line == "":
@@ -394,7 +407,7 @@ def deb_upload(server, delayed, changes_file):
     top_match = changelog.topline.match(parsed[0])
     distributions = top_match.group(3).lstrip()
 
-    assert distributions == changes['Distribution']
+    assert distributions == changes["Distribution"]
     assert distributions != "UNRELEASED"
 
     if delayed > 0:
@@ -417,9 +430,7 @@ def rpm_lint(tmp_dir, chroot):
             rpms.append(os.path.join(src_dir_2, name_2))
 
     with docker(chroot) as chroot:
-        chroot.check_call(
-            ["yum", "install", "--assumeyes", "--", "rpmlint"],
-            root=True)
+        chroot.check_call(["yum", "install", "--assumeyes", "--", "rpmlint"], root=True)
         chroot.check_call(["rpmlint"] + rpms)
 
 
@@ -440,10 +451,10 @@ def rpm_test(tmp_dir, chroot, test_mode):
             rpms.append(os.path.join(src_dir_2, name_2))
 
     with docker(chroot) as chroot:
+        chroot.check_call(["yum", "update", "--assumeyes"], root=True)
         chroot.check_call(
-            ["yum", "update", "--assumeyes"], root=True)
-        chroot.check_call(
-            ["yum", "localinstall", "--assumeyes", "--"] + rpms, root=True)
+            ["yum", "localinstall", "--assumeyes", "--"] + rpms, root=True
+        )
 
         if test_mode == "auto":
             pass
@@ -498,65 +509,69 @@ def chdir(directory):
 def main():
     setup_logging()
 
-    parser = argparse.ArgumentParser(
-        description="Build Debian packages with sbuild.")
+    parser = argparse.ArgumentParser(description="Build Debian packages with sbuild.")
 
     group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--dsc", dest="dsc_path", help="Act on dsc file.")
     group.add_argument(
-        "--dsc",
-        dest="dsc_path",
-        help="Act on dsc file.")
-    group.add_argument(
-        "--working",
-        dest="working_dir",
-        help="Act on tree in working directory.")
+        "--working", dest="working_dir", help="Act on tree in working directory."
+    )
 
     parser.add_argument(
-        "--upload",
-        action="store_true",
-        default=False,
-        help="upload result")
+        "--upload", action="store_true", default=False, help="upload result"
+    )
 
     parser.add_argument(
         "--distros",
-        choices=['debian', 'linuxpenguins', 'pypi'],
+        choices=["debian", "linuxpenguins", "pypi"],
         action="append",
         default=[],
-        help="build distros")
+        help="build distros",
+    )
 
     parser.add_argument(
         "--distributions",
         choices=[
-                 'buster', 'buster-security',
-                 'bullseye', 'bullseye-security',
-                 'sid', 'experimental',
-                 'xenial',
-                 'fedora20', 'centos6', 'centos7'
-                ],
+            "buster",
+            "buster-security",
+            "bullseye",
+            "bullseye-security",
+            "sid",
+            "experimental",
+            "xenial",
+            "fedora20",
+            "centos6",
+            "centos7",
+        ],
         action="append",
         default=[],
-        help="build distributions")
+        help="build distributions",
+    )
 
     parser.add_argument(
         "--architectures",
-        choices=['i386', 'amd64'],
+        choices=["i386", "amd64"],
         action="append",
         default=[],
-        help="build architecture")
+        help="build architecture",
+    )
 
     parser.add_argument(
         "--delayed",
-        choices=range(0, 15+1), default=0,
+        choices=range(0, 15 + 1),
+        default=0,
         type=int,
         help="Upload to a DELAYED queue, rather than the usual Incoming. "
-             "This takes an argument from 0 to 15. Note  that  a "
-             "delay of 0 is different from no delay at all.")
+        "This takes an argument from 0 to 15. Note  that  a "
+        "delay of 0 is different from no delay at all.",
+    )
 
     parser.add_argument(
         "--test",
-        choices=['none', 'auto', 'manual', 'manual_no_unpack'],
-        default='auto',
-        help="how to test?")
+        choices=["none", "auto", "manual", "manual_no_unpack"],
+        default="auto",
+        help="how to test?",
+    )
 
     args = parser.parse_args()
 
@@ -571,34 +586,34 @@ def main():
 
     distributions = set(args.distributions)
     if len(distributions) == 0:
-        if 'debian' in distros:
+        if "debian" in distros:
             distributions.add("sid")
 
     architectures = set(args.architectures)
     if len(architectures) == 0:
-        architectures = ['i386', 'amd64']
+        architectures = ["i386", "amd64"]
 
-    if 'debian' in distros:
+    if "debian" in distros:
         build = []
         source_upload = True
-        if 'buster' in distributions:
-            build.append('buster')
+        if "buster" in distributions:
+            build.append("buster")
             if args.upload:
                 raise RuntimeError("Cannot upload to buster")
-        if 'bullseye' in distributions:
-            build.append('bullseye')
+        if "bullseye" in distributions:
+            build.append("bullseye")
             if args.upload:
                 raise RuntimeError("Cannot upload to bullseye")
-        if 'bullseye-security' in distributions:
+        if "bullseye-security" in distributions:
             source_upload = False
-            build.append('bullseye-security')
-        if 'buster-security' in distributions:
+            build.append("bullseye-security")
+        if "buster-security" in distributions:
             source_upload = False
-            build.append('buster-security')
-        if 'sid' in distributions:
-            build.append('sid')
-        if 'experimental' in distributions:
-            build.append('experimental')
+            build.append("buster-security")
+        if "sid" in distributions:
+            build.append("sid")
+        if "experimental" in distributions:
+            build.append("experimental")
 
         source = True
         for distribution in build:
@@ -623,8 +638,14 @@ def main():
                     build_chroot = f"brianmay/debian-{architecture}:{real_distribution}"
                     test_chroot = f"brianmay/debian-{architecture}:{real_distribution}"
                     changes_file = deb_build(
-                        tmp_dir, tmp_dsc_path, build_chroot,
-                        upload_distribution, architecture, True, arch_all, source,
+                        tmp_dir,
+                        tmp_dsc_path,
+                        build_chroot,
+                        upload_distribution,
+                        architecture,
+                        True,
+                        arch_all,
+                        source,
                         None,
                     )
                     if changes_file is not None:
@@ -641,9 +662,16 @@ def main():
                     build_chroot = f"brianmay/debian-source:{real_distribution}"
                     test_chroot = f"brianmay/debian-source:{real_distribution}"
                     changes_file = deb_build(
-                        tmp_dir, tmp_dsc_path, build_chroot,
-                        upload_distribution, "source", False, False, True,
-                        None)
+                        tmp_dir,
+                        tmp_dsc_path,
+                        build_chroot,
+                        upload_distribution,
+                        "source",
+                        False,
+                        False,
+                        True,
+                        None,
+                    )
                     if changes_file is not None:
                         deb_sign(changes_file)
                         deb_test_source_only(changes_file, args.test)
@@ -652,7 +680,7 @@ def main():
 
     # end if 'debian' in distros:
 
-    if 'pypi' in distros:
+    if "pypi" in distros:
         with temp_dir() as tmp_dir:
             pypi_upload(tmp_dir, dsc_path)
 
