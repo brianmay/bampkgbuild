@@ -52,9 +52,9 @@ def setup_logging():
     root.addHandler(console)
 
 
-#def check_call(cmd):
-#    logger.debug(" ".join(cmd))
-#    return subprocess.check_call(cmd)
+def check_call(cmd):
+    logger.debug(" ".join(cmd))
+    return subprocess.check_call(cmd)
 
 
 def deb_build_src(src_dir, chroot_name):
@@ -280,12 +280,12 @@ def deb_lint(changes_file, chroot_name):
 #        chroot.check_call(["lintian4py", changes_file])
 
 
-def deb_test(changes_file, chroot, test_mode, extra_repo):
+def deb_test(changes_file, chroot_name, test_mode, extra_repo):
     if test_mode == "none":
         return
     elif test_mode == "manual_no_unpack":
         build_dir = os.path.dirname(changes_file)
-        with docker(chroot) as chroot:
+        with docker(chroot_name) as chroot:
             chroot.check_call(["bash"], cwd=build_dir, root=True)
         return
 
@@ -297,7 +297,7 @@ def deb_test(changes_file, chroot, test_mode, extra_repo):
         if f["name"].endswith(".deb"):
             debs.append(os.path.join(build_dir, f["name"]))
 
-    with docker(chroot) as chroot:
+    with docker(chroot_name) as chroot:
         if extra_repo is not None:
             name = "/etc/apt/sources.list.d/extra_repo.list"
             with chroot.create_file(name, user="root") as f:
@@ -335,7 +335,7 @@ def deb_test_source_only(changes_file, test_mode):
         raise RuntimeError("Unknown test mode %s" % test_mode)
 
 
-def deb_upload(server, delayed, changes_file):
+def deb_upload(server, delayed, changes_file, chroot_name):
     with open(changes_file) as f:
         changes = deb822.Changes(f)
 
@@ -358,10 +358,11 @@ def deb_upload(server, delayed, changes_file):
     assert distributions == changes["Distribution"]
     assert distributions != "UNRELEASED"
 
-    if delayed > 0:
-        check_call(["dput", "--delayed=%d" % delayed, server, changes_file])
-    else:
-        check_call(["dput", server, changes_file])
+    with docker(chroot_name) as chroot:
+        if delayed > 0:
+            chroot.check_call(["dput", "--delayed=%d" % delayed, server, changes_file])
+        else:
+            chroot.check_call(["dput", server, changes_file])
 
 
 @contextmanager
@@ -533,7 +534,7 @@ def main():
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test, None)
                         if not source_upload and args.upload and source:
-                            deb_upload(server, args.delayed, changes_file)
+                            deb_upload(server, args.delayed, changes_file, build_chroot)
                     arch_all = False
                     source = False
 
@@ -555,7 +556,7 @@ def main():
                         deb_sign(changes_file, build_chroot)
                         deb_test_source_only(changes_file, args.test)
                         if args.upload:
-                            deb_upload(server, args.delayed, changes_file)
+                            deb_upload(server, args.delayed, changes_file, build_chroot)
 
     # end if 'debian' in distros:
 
