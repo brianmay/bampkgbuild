@@ -25,7 +25,7 @@ class docker_container():
             env["USER"] = user
         else:
             params.extend(["--user", str(os.getuid())])
-            env["USER"] = str(os.getuid())
+            env["USER"] = str(os.getlogin())
 
         if cwd is not None:
             params.extend(["--workdir", cwd])
