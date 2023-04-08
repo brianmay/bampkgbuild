@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "bampkgbuild"
+version = "0.0.1"
+description = "Build Debian packages in containers"
+authors = ["Brian May <brian@linuxpenguins.xyz>"]
+license = "GPL3+"
+readme = "README.rst"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-debian = "^0.1.49"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+bampkgbuild = "bampkgbuild.main:main"

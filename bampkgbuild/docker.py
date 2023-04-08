@@ -8,13 +8,14 @@ logger = logging.getLogger(__name__)
 
 
 class docker_container():
-    def __init__(self, container):
+    def __init__(self, container, gpg):
         self.container = container
+        self.gpg = gpg
 
     def _get_params(self, cmd, user, cwd):
         env = {}
         params = [
-                "docker",
+                "podman",
                 "exec",
                 "-ti",
             ]
@@ -29,8 +30,11 @@ class docker_container():
         if cwd is not None:
             params.extend(["--workdir", cwd])
 
+        if self.gpg:
+            params.extend(["--env", f"GNUPGHOME=/gpg"])
+
         for key, value in env.items():
-            params.extend(["-e", f"{key}={value}"])
+            params.extend(["--env", f"{key}={value}"])
 
         params.append(self.container)
         params.extend(cmd)
@@ -74,34 +78,48 @@ class docker_container():
 
 
 class docker():
-    def __init__(self, chroot_name):
+    def __init__(self, chroot_name, gpg=False, volume=None):
         self.chroot_name = chroot_name
+        self.gpg = gpg
+        self.volume = volume
 
     def __enter__(self):
-        self.container = check_output([
-            "docker",
+        params = [
+            "podman",
             "create",
             "-t",
             "-i",
             "-v", "/tmp:/tmp",
-            self.chroot_name,
-        ]).strip().decode()
+        ]
+
+        volume = self.volume
+        if volume is not None:
+            params.extend(["--volume", f"{volume[0]}:{volume[1]}"])
+
+        if self.gpg:
+            gpg_dir = os.environ['GNUPGHOME']
+            params.extend(["--volume", f"{gpg_dir}:/gpg"])
+
+        params.extend(["--userns", f"keep-id"])
+
+        params.append(self.chroot_name)
+        self.container = check_output(params).strip().decode()
 
         check_call(
             [
-                "docker",
+                "podman",
                 "start",
                 self.container,
             ]
         )
 
-        docker = docker_container(self.container)
+        docker = docker_container(self.container, self.gpg)
         return docker
 
     def __exit__(self, type, value, traceback):
         check_call(
             [
-                "docker",
+                "podman",
                 "kill",
                 self.container,
             ]
@@ -109,7 +127,7 @@ class docker():
 
         check_call(
             [
-                "docker",
+                "podman",
                 "rm",
                 self.container,
             ]

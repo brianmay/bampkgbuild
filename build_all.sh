@@ -8,15 +8,16 @@ build() {
     platform="$4"
     security="$5"
 
-    docker pull "$src"
+    docker pull --platform "$platform" "$src"
     docker build --platform "$platform" --build-arg IMAGE="$src" --build-arg DISTRIBUTION="$dist" --build-arg SECURITY="$security" -t "$dst" .
 }
 
 for d in sid; do
-    build "i386/debian:$d" "brianmay/debian-i386:$d" "$d" "linux/i386" "none"
-    build "debian:$d" "brianmay/debian-amd64:$d" "$d" "linux/amd64" "none"
-    build "debian:$d" "brianmay/debian-source:$d" "$d" "linux/amd64" "none"
+    build "docker.io/i386/debian:$d" "brianmay/debian-i386:$d" "$d" "linux/i386" "none"
+    build "docker.io/debian:$d" "brianmay/debian-amd64:$d" "$d" "linux/amd64" "none"
+    build "docker.io/debian:$d" "brianmay/debian-source:$d" "$d" "linux/amd64" "none"
 done
+exit 0
 
 for d in buster; do
     build "i386/debian:$d" "brianmay/debian-i386:$d" "$d" "linux/i386" "pre-bullseye"

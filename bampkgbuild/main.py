@@ -52,34 +52,36 @@ def setup_logging():
     root.addHandler(console)
 
 
-def check_call(cmd):
-    logger.debug(" ".join(cmd))
-    return subprocess.check_call(cmd)
+#def check_call(cmd):
+#    logger.debug(" ".join(cmd))
+#    return subprocess.check_call(cmd)
 
 
-def deb_build_src(src_dir):
+def deb_build_src(src_dir, chroot_name):
     changelog_file = os.path.join(src_dir, "debian/changelog")
     cl = changelog.Changelog(open(changelog_file))
     parent_dir = os.path.join(src_dir, "..")
+    parent_abs = os.path.abspath(parent_dir)
 
-    if os.path.isdir(os.path.join(src_dir, ".git")):
-        with chdir(src_dir):
-            check_call(
+    src_abs = os.path.abspath(src_dir)
+    src_name = os.path.basename(src_abs)
+
+    if os.path.isdir(os.path.join(src_abs, ".git")):
+        with docker(chroot_name, volume=(parent_abs, "/build")) as chroot:
+            chroot.check_call(
                 [
                     "gbp",
                     "buildpackage",
                     # "--git-ignore-branch", "--git-ignore-new",
-                    "--git-builder=debuild --no-lintian -i -I -S -nc",
+                    "--git-builder=debuild --no-lintian -i -I -S -nc -uc -us",
                     "--no-check-builddeps",
-                ]
+                ],
+                cwd = os.path.join("/build", src_name),
             )
 
     else:
-        src_abs = os.path.abspath(src_dir)
-        src_name = os.path.basename(src_abs)
-
-        with chdir(parent_dir):
-            check_call(["dpkg-source", "-b", src_name])
+        with docker(chroot_name, volume=(parent_abs, "/build")) as chroot:
+            check_call(["dpkg-source", "-b", src_name], cwd = parent_abs)
 
     # remove epoch for filename
     version = re.sub(r"^\d+:", "", str(cl.version), 1)
@@ -221,15 +223,13 @@ def deb_build(
                 data = "%s\n" % (extra_repo)
                 f.write(data.encode("ASCII"))
 
-        chroot.check_call(["useradd", "--uid", str(os.getuid()), "build"], root=True)
-
         try:
             chroot.check_call(["mkdir", "-p", dst_dir])
             chroot.check_call(["dpkg-source", "-x", dsc_path, build_dir], cwd=dst_dir)
             chroot.check_call(["apt-get", "update", "--yes"], root=True)
             chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
             chroot.check_call(["apt-get", "build-dep", "--yes", build_dir], root=True)
-            chroot.check_call(params, cwd=build_dir, user="build")
+            chroot.check_call(params, cwd=build_dir)
         except Exception:
             chroot.check_call(["bash"], cwd=build_dir, root=True)
             raise
@@ -300,17 +300,18 @@ def rpm_build(
     return True
 
 
-def deb_sign(changes_file):
-    try:
-        check_call(["debsign", changes_file])
-    except subprocess.CalledProcessError:
-        print("Push any key to try signing again.")
-        sys.stdin.readline()
-        check_call(["debsign", changes_file])
+def deb_sign(changes_file, chroot_name):
+    with docker(chroot_name, gpg=True) as chroot:
+        try:
+            chroot.check_call(["debsign", changes_file])
+        except subprocess.CalledProcessError:
+            print("Push any key to try signing again.")
+            sys.stdin.readline()
+            chroot.check_call(["debsign", changes_file])
 
 
-def deb_lint(changes_file, chroot):
-    with docker(chroot) as chroot:
+def deb_lint(changes_file, chroot_name):
+    with docker(chroot_name) as chroot:
         chroot.check_call(["apt-get", "update", "--yes"], root=True)
         chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
         chroot.check_call(
@@ -576,7 +577,7 @@ def main():
     args = parser.parse_args()
 
     if args.working_dir:
-        dsc_path = deb_build_src(args.working_dir)
+        dsc_path = deb_build_src(args.working_dir, "brianmay/debian-amd64:sid")
     else:
         dsc_path = args.dsc_path
 
@@ -649,7 +650,7 @@ def main():
                         None,
                     )
                     if changes_file is not None:
-                        deb_sign(changes_file)
+                        deb_sign(changes_file, build_chroot)
                         if distribution in ["sid", "experimental"]:
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test, None)
@@ -673,7 +674,7 @@ def main():
                         None,
                     )
                     if changes_file is not None:
-                        deb_sign(changes_file)
+                        deb_sign(changes_file, build_chroot)
                         deb_test_source_only(changes_file, args.test)
                         if args.upload:
                             deb_upload(server, args.delayed, changes_file)
