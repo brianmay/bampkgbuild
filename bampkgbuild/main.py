@@ -247,59 +247,6 @@ def deb_build(
     return changes_file
 
 
-def rpm_build(
-    tmp_dir,
-    dsc_path,
-    spec_path,
-    chroot_name,
-    distribution,
-    architecture,
-    arch_all,
-    source,
-):
-    if spec_path is None:
-        return None
-
-    d = deb822.Dsc(open(dsc_path))
-
-    dsc_dir = os.path.dirname(dsc_path)
-
-    orig_name = None
-    orig_path = None
-
-    for f in d["files"]:
-        if f["name"].endswith(".orig.tar.gz"):
-            orig_name = f["name"]
-            orig_path = os.path.join(dsc_dir, orig_name)
-
-    assert orig_name is not None
-    assert orig_path is not None
-
-    dst_dir = os.path.join(tmp_dir, "SOURCES")
-    dst_name = orig_name.replace(".orig.tar.gz", ".tar.gz")
-    dst_path = os.path.join(dst_dir, dst_name)
-
-    if not os.path.isdir(dst_dir):
-        os.mkdir(dst_dir)
-
-    shutil.copyfile(orig_path, dst_path)
-    os.chmod(dst_path, 0o644)
-
-    if source:
-        source = "-ba"
-    else:
-        source = "-bb"
-
-    with docker(chroot_name) as chroot:
-        chroot.check_call(["yum-builddep", "-y", spec_path], root=True)
-
-        chroot.check_call(
-            ["rpmbuild", "--define", "_topdir " + tmp_dir, source, spec_path]
-        )
-
-    return True
-
-
 def deb_sign(changes_file, chroot_name):
     with docker(chroot_name, gpg=True) as chroot:
         try:
@@ -417,75 +364,6 @@ def deb_upload(server, delayed, changes_file):
         check_call(["dput", server, changes_file])
 
 
-def rpm_lint(tmp_dir, chroot):
-    rpms = []
-
-    src_dir = os.path.join(tmp_dir, "SRPMS")
-    for name in os.listdir(src_dir):
-        rpms.append(os.path.join(src_dir, name))
-
-    src_dir = os.path.join(tmp_dir, "RPMS")
-    for name in os.listdir(src_dir):
-        src_dir_2 = os.path.join(src_dir, name)
-        for name_2 in os.listdir(src_dir_2):
-            rpms.append(os.path.join(src_dir_2, name_2))
-
-    with docker(chroot) as chroot:
-        chroot.check_call(["yum", "install", "--assumeyes", "--", "rpmlint"], root=True)
-        chroot.check_call(["rpmlint"] + rpms)
-
-
-def rpm_test(tmp_dir, chroot, test_mode):
-    if test_mode == "none":
-        return
-    elif test_mode == "manual_no_unpack":
-        with docker(chroot) as chroot:
-            chroot.check_call(["bash"], cwd=tmp_dir, root=True)
-        return
-
-    rpms = []
-
-    src_dir = os.path.join(tmp_dir, "RPMS")
-    for name in os.listdir(src_dir):
-        src_dir_2 = os.path.join(src_dir, name)
-        for name_2 in os.listdir(src_dir_2):
-            rpms.append(os.path.join(src_dir_2, name_2))
-
-    with docker(chroot) as chroot:
-        chroot.check_call(["yum", "update", "--assumeyes"], root=True)
-        chroot.check_call(
-            ["yum", "localinstall", "--assumeyes", "--"] + rpms, root=True
-        )
-
-        if test_mode == "auto":
-            pass
-        elif test_mode == "manual":
-            chroot.check_call(["bash"], cwd=tmp_dir, root=True)
-        else:
-            raise RuntimeError("Unknown test mode %s" % test_mode)
-
-
-def rpm_upload(tmp_dir, dst_path):
-    src_path = os.path.join(tmp_dir, "SRPMS", "")
-    check_call(["rsync", "-rvp", src_path, dst_path])
-
-    src_dir = os.path.join(tmp_dir, "RPMS")
-    for name in os.listdir(src_dir):
-        src_path = os.path.join(src_dir, name, "")
-        check_call(["rsync", "-rvp", src_path, dst_path])
-
-
-def pypi_upload(tmp_dir, dsc_path):
-    dsc_path = os.path.abspath(dsc_path)
-    build_dir = os.path.join(tmp_dir, "source")
-
-    os.chdir(tmp_dir)
-    check_call(["dpkg-source", "-x", dsc_path, build_dir])
-
-    os.chdir(build_dir)
-    check_call(["./setup.py", "sdist", "upload", "--signed"])
-
-
 @contextmanager
 def temp_dir():
     tmp_dir = tempfile.mkdtemp()
@@ -524,7 +402,7 @@ def main():
 
     parser.add_argument(
         "--distros",
-        choices=["debian", "linuxpenguins", "pypi"],
+        choices=["debian", "linuxpenguins"],
         action="append",
         default=[],
         help="build distros",
@@ -680,11 +558,6 @@ def main():
                             deb_upload(server, args.delayed, changes_file)
 
     # end if 'debian' in distros:
-
-    if "pypi" in distros:
-        with temp_dir() as tmp_dir:
-            pypi_upload(tmp_dir, dsc_path)
-
 
 if __name__ == "__main__":
     main()
