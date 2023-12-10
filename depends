@@ -1,0 +1,47 @@
+#!/bin/sh
+set -e
+set -x
+
+# Create a temporary directory and store its name in a variable ...
+SRCDIR=$(mktemp -d)
+TMPDIR=$(mktemp -d)
+
+PATH="$HOME/tree/personal/bampkgbuild:$PATH"
+
+# Bail out if the temp directory wasn't created successfully.
+if [ ! -e $SRCDIR ]; then
+    echo "Failed to create temp directory" >&2
+    exit 1
+fi
+if [ ! -e $TMPDIR ]; then
+    echo "Failed to create temp directory" >&2
+    exit 1
+fi
+
+# Make sure it gets removed even if the script exits abnormally.
+trap "exit 1"           HUP INT PIPE QUIT TERM
+trap 'rm -rf "$SRCDIR" "$TMPDIR"' EXIT
+
+cd "$SRCDIR"
+build_rdepends --architecture amd64 --distribution stretch --output="$SRCDIR/packages.txt" "$@"  >&2
+packages="$(cat "$SRCDIR/packages.txt")"
+download --architecture amd64 --distribution stretch --download binaries -- $packages >&2
+
+for i in *.deb; do
+    rm -rf "$TMPDIR"
+    dpkg-deb --raw-extract "$i" "$TMPDIR" >&2
+
+    HIT=""
+    if grep -qr 'github.com/gorilla/websocket' -- $TMPDIR >&2; then
+        HIT="net $HIT"
+    fi
+
+    if test -n "$HIT"; then
+        echo "Package $i needs rebuilding" >&2
+        source="$(dpkg-deb -f "$i" Package)"
+        if test -z "$source"; then
+            source="$(dpkg-deb -f "$i" Package)"
+        fi
+        echo "$source $HIT"
+    fi
+done
