@@ -509,8 +509,6 @@ def main():
 
             if upload_distribution == "sid":
                 upload_distribution = "unstable"
-            elif upload_distribution == "experimental":
-                real_distribution = "sid"
 
             split = distribution.split("-")
             server = "ftp-master"
