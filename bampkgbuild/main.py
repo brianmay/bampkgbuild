@@ -66,7 +66,11 @@ def deb_build_src(src_dir, chroot_name):
     rm_file_list = [ "debian/files" ];
     for rm_file in rm_file_list:
         path = os.path.join(src_dir, rm_file)
-        os.remove(path)
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            # ignore
+            pass
 
     src_abs = os.path.abspath(src_dir)
     src_name = os.path.basename(src_abs)
