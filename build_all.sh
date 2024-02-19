@@ -10,7 +10,7 @@ build() {
     experimental="$6"
 
     docker pull --platform "$platform" "$src"
-    docker build --platform "$platform" --build-arg IMAGE="$src" --build-arg DISTRIBUTION="$dist" --build-arg SECURITY="$security" --build-arg EXPERIMENTAL="$experimental" -t "$dst" .
+    docker build --force-rm --platform "$platform" --build-arg IMAGE="$src" --build-arg DISTRIBUTION="$dist" --build-arg SECURITY="$security" --build-arg EXPERIMENTAL="$experimental" -t "$dst" .
 }
 
 for d in experimental; do
