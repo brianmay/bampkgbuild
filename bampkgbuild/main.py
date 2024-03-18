@@ -421,16 +421,13 @@ def main():
     parser.add_argument(
         "--distributions",
         choices=[
-            "buster",
-            "buster-security",
             "bullseye",
             "bullseye-security",
+            "bookworm",
+            "bookworm-security",
             "sid",
+            "stable",
             "experimental",
-            "xenial",
-            "fedora20",
-            "centos6",
-            "centos7",
         ],
         action="append",
         default=[],
@@ -485,10 +482,6 @@ def main():
     if "debian" in distros:
         build = []
         source_upload = True
-        if "buster" in distributions:
-            build.append("buster")
-            if args.upload:
-                raise RuntimeError("Cannot upload to buster")
         if "bullseye" in distributions:
             build.append("bullseye")
             if args.upload:
@@ -496,9 +489,16 @@ def main():
         if "bullseye-security" in distributions:
             source_upload = False
             build.append("bullseye-security")
-        if "buster-security" in distributions:
+        if "bookworm" in distributions:
+            build.append("bookworm")
+            if args.upload:
+                raise RuntimeError("Cannot upload to bookworm")
+        if "bookworm-security" in distributions:
             source_upload = False
-            build.append("buster-security")
+            build.append("bookworm-security")
+        if "stable" in distributions:
+            build.append("stable")
+            source_upload = False
         if "sid" in distributions:
             build.append("sid")
         if "experimental" in distributions:
@@ -511,8 +511,12 @@ def main():
             real_distribution = distribution
             upload_distribution = distribution
 
-            if upload_distribution == "sid":
+            if distribution == "sid":
                 upload_distribution = "unstable"
+
+            if distribution == "stable":
+                real_distribution = "bookworm"
+                upload_distribution = "stable"
 
             split = distribution.split("-")
             server = "ftp-master"

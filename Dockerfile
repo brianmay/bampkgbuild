@@ -18,7 +18,7 @@ RUN \
 
 RUN \
  if test "$SECURITY" = "bullseye"; then \
-     echo "deb http://ftp.au.debian.org/security ${DISTRIBUTION}-security main" \
+     echo "deb http://security.debian.org/debian-security ${DISTRIBUTION}-security main" \
      >> /etc/apt/sources.list; \
  fi
 
@@ -29,7 +29,8 @@ RUN \
  fi
 
 RUN cat  /etc/apt/sources.list
-RUN apt-get update --yes && apt-get upgrade --yes && apt-get install --yes \
+RUN apt-get --print-uris update && \
+    apt-get update --yes && apt-get upgrade --yes && apt-get install --yes \
     build-essential \
     devscripts \
     haskell-debian-utils \
