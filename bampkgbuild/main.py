@@ -426,6 +426,7 @@ def main():
             "bookworm",
             "bookworm-security",
             "sid",
+            "oldstable",
             "stable",
             "experimental",
         ],
@@ -496,6 +497,9 @@ def main():
         if "bookworm-security" in distributions:
             source_upload = False
             build.append("bookworm-security")
+        if "oldstable" in distributions:
+            build.append("oldstable")
+            source_upload = False
         if "stable" in distributions:
             build.append("stable")
             source_upload = False
@@ -513,6 +517,10 @@ def main():
 
             if distribution == "sid":
                 upload_distribution = "unstable"
+
+            if distribution == "oldstable":
+                real_distribution = "bullseye"
+                upload_distribution = "oldstable"
 
             if distribution == "stable":
                 real_distribution = "bookworm"
