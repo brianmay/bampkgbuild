@@ -35,7 +35,7 @@ RUN apt-get --print-uris update && \
     devscripts \
     haskell-debian-utils \
     locales \
-    liblz4-tool \
+    lz4 \
     lintian \
     git-buildpackage \
  && if test -n "$EXPERIMENTAL"; then apt-get upgrade --yes -t experimental $EXPERIEMENTAL; fi \
