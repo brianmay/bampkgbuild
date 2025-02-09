@@ -1,25 +1,25 @@
-[tool.poetry]
-name = "bampkgbuild"
-version = "0.0.1"
-description = "Build Debian packages in containers"
-authors = ["Brian May <brian@linuxpenguins.xyz>"]
-license = "GPL3+"
-readme = "README.rst"
-
-[tool.poetry.dependencies]
-python = "^3.10"
-python-debian = "^0.1.49"
-colorlog = "^6.9.0"
-
-[tool.poetry.group.dev.dependencies]
-python-lsp-server = "^1.12.2"
-python-lsp-ruff = "^2.2.2"
-python-lsp-black = "^2.0.0"
-pylsp-mypy = "^0.7.0"
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry.scripts]
+[project]
+name = "bampkgbuild"
+version = "0.0.1"
+description = "Build Debian packages in containers"
+authors = [ {name="Brian May", email="<brian@linuxpenguins.xyz>"}, ]
+license = "GPL3+"
+readme = "README.rst"
+dependencies = [
+    "colorlog == 6.9.0",
+    "python-debian == 0.1.49",]
+requires-python = ">=3.9"
+
+[project.scripts]
 bampkgbuild = "bampkgbuild.main:main"
+
+[project.optional-dependencies]
+dev = [
+    "python-lsp-server == 1.12.2",
+    "python-lsp-ruff == 2.2.2",
+    "python-lsp-black == 2.0.0",
+    "pylsp-mypy == 0.7.0",]
