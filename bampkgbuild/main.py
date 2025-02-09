@@ -13,35 +13,26 @@ from debian import changelog
 from contextlib import contextmanager
 import logging.config
 from bampkgbuild.docker import docker
-
-try:
-    from colorlog import ColoredFormatter
-except ImportError:
-    ColoredFormatter = None
+from colorlog import ColoredFormatter
+from typing import List, Optional, Iterator
 
 
 logger = logging.getLogger(__name__)
 
 
-def setup_logging():
-    if ColoredFormatter is not None:
-        formatter = ColoredFormatter(
-            "\n%(log_color)s%(asctime)s %(levelname)-8s %(message)s",
-            datefmt="%m-%d %H:%M",
-            reset=True,
-            log_colors={
-                "DEBUG": "cyan",
-                "INFO": "green",
-                "WARNING": "yellow",
-                "ERROR": "red",
-                "CRITICAL": "red",
-            },
-        )
-    else:
-        formatter = logging.Formatter(
-            "\n%(asctime)s %(levelname)-8s " "%(message)s",
-            datefmt="%m-%d %H:%M",
-        )
+def setup_logging() -> None:
+    formatter = ColoredFormatter(
+        "\n%(log_color)s%(asctime)s %(levelname)-8s %(message)s",
+        datefmt="%m-%d %H:%M",
+        reset=True,
+        log_colors={
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red",
+        },
+    )
 
     console = logging.StreamHandler()
     console.setLevel(logging.DEBUG)
@@ -52,18 +43,18 @@ def setup_logging():
     root.addHandler(console)
 
 
-def check_call(cmd):
+def check_call(cmd: List[str]) -> int:
     logger.debug(" ".join(cmd))
     return subprocess.check_call(cmd)
 
 
-def deb_build_src(src_dir, chroot_name):
+def deb_build_src(src_dir: str, chroot_name: str) -> str:
     changelog_file = os.path.join(src_dir, "debian/changelog")
     cl = changelog.Changelog(open(changelog_file))
     parent_dir = os.path.join(src_dir, "..")
     parent_abs = os.path.abspath(parent_dir)
 
-    rm_file_list = [ "debian/files" ];
+    rm_file_list = [ "debian/files" ]
     for rm_file in rm_file_list:
         path = os.path.join(src_dir, rm_file)
         try:
@@ -90,7 +81,7 @@ def deb_build_src(src_dir, chroot_name):
 
     else:
         with docker(chroot_name, volume=(parent_abs, "/build")) as chroot:
-            check_call(["dpkg-source", "-b", src_name], cwd = parent_abs)
+            chroot.check_call(["dpkg-source", "-b", src_name], cwd = parent_abs)
 
     # remove epoch for filename
     version = re.sub(r"^\d+:", "", str(cl.version), 1)
@@ -99,7 +90,7 @@ def deb_build_src(src_dir, chroot_name):
     return dsc_file
 
 
-def deb_copy_source(tmp_dir, dsc_path):
+def deb_copy_source(tmp_dir: str, dsc_path: str) -> str:
     src_dir = os.path.dirname(dsc_path)
     dst_dir = tmp_dir
     dsc_file = os.path.basename(dsc_path)
@@ -119,7 +110,7 @@ def deb_copy_source(tmp_dir, dsc_path):
     return dsc_path
 
 
-def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
+def deb_update_source(tmp_dir: str, dsc_path: str, distribution: str, add_to_version: str) -> str:
     dsc_file = os.path.basename(dsc_path)
     build_dir = os.path.join(tmp_dir, "source")
 
@@ -190,16 +181,16 @@ def deb_update_source(tmp_dir, dsc_path, distribution, add_to_version):
 
 
 def deb_build(
-    tmp_dir,
-    dsc_path,
-    chroot_name,
-    distribution,
-    architecture,
-    arch_any,
-    arch_all,
-    source,
-    extra_repo,
-):
+    tmp_dir: str,
+    dsc_path: str,
+    chroot_name: str,
+    distribution: str,
+    architecture: str,
+    arch_any: bool,
+    arch_all: bool,
+    source: bool,
+    extra_repo: Optional[str],
+) -> Optional[str]:
     dst_dir = os.path.join(tmp_dir, "build", architecture)
     dsc_path = os.path.abspath(dsc_path)
     build_dir = os.path.join(dst_dir, "source")
@@ -256,7 +247,7 @@ def deb_build(
     return changes_file
 
 
-def deb_sign(changes_file, chroot_name):
+def deb_sign(changes_file: str, chroot_name: str) -> None:
     with docker(chroot_name, gpg=True) as chroot:
         try:
             chroot.check_call(["debsign", changes_file])
@@ -266,7 +257,7 @@ def deb_sign(changes_file, chroot_name):
             chroot.check_call(["debsign", changes_file])
 
 
-def deb_lint(changes_file, chroot_name):
+def deb_lint(changes_file: str, chroot_name: str) -> None:
     with docker(chroot_name) as chroot:
         chroot.check_call(["apt-get", "update", "--yes"], root=True)
         chroot.check_call(["apt-get", "upgrade", "--yes"], root=True)
@@ -289,7 +280,7 @@ def deb_lint(changes_file, chroot_name):
 #        chroot.check_call(["lintian4py", changes_file])
 
 
-def deb_test(changes_file, chroot_name, test_mode, extra_repo):
+def deb_test(changes_file: str, chroot_name: str, test_mode: str, extra_repo: Optional[str]) -> None:
     if test_mode == "none":
         return
     elif test_mode == "manual_no_unpack":
@@ -329,7 +320,7 @@ def deb_test(changes_file, chroot_name, test_mode, extra_repo):
             raise RuntimeError("Unknown test mode %s" % test_mode)
 
 
-def deb_test_source_only(changes_file, test_mode):
+def deb_test_source_only(changes_file: str, test_mode: str) -> None:
     if test_mode == "none":
         return
 
@@ -344,7 +335,7 @@ def deb_test_source_only(changes_file, test_mode):
         raise RuntimeError("Unknown test mode %s" % test_mode)
 
 
-def deb_upload(server, delayed, changes_file, chroot_name):
+def deb_upload(server: str, delayed: int, changes_file: str, chroot_name: str) -> None:
     with open(changes_file) as f:
         changes = deb822.Changes(f)
 
@@ -362,6 +353,7 @@ def deb_upload(server, delayed, changes_file, chroot_name):
         parsed.append(line)
 
     top_match = changelog.topline.match(parsed[0])
+    assert top_match is not None
     distributions = top_match.group(3).lstrip()
 
     assert distributions == changes["Distribution"]
@@ -375,7 +367,7 @@ def deb_upload(server, delayed, changes_file, chroot_name):
 
 
 @contextmanager
-def temp_dir():
+def temp_dir() -> Iterator[str]:
     tmp_dir = tempfile.mkdtemp()
     cur_dir = os.getcwd()
     try:
@@ -386,7 +378,7 @@ def temp_dir():
 
 
 @contextmanager
-def chdir(directory):
+def chdir(directory: str) -> Iterator[str]:
     old_dir = os.getcwd()
     try:
         os.chdir(directory)
@@ -395,7 +387,7 @@ def chdir(directory):
         os.chdir(old_dir)
 
 
-def main():
+def main() -> None:
     setup_logging()
 
     parser = argparse.ArgumentParser(description="Build Debian packages with sbuild.")
@@ -476,7 +468,7 @@ def main():
         if "debian" in distros:
             distributions.add("sid")
 
-    architectures = set(args.architectures)
+    architectures = list(args.architectures)
     if len(architectures) == 0:
         architectures = ["i386", "amd64"]
 

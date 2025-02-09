@@ -9,6 +9,13 @@ readme = "README.rst"
 [tool.poetry.dependencies]
 python = "^3.10"
 python-debian = "^0.1.49"
+colorlog = "^6.9.0"
+
+[tool.poetry.group.dev.dependencies]
+python-lsp-server = "^1.12.2"
+python-lsp-ruff = "^2.2.2"
+python-lsp-black = "^2.0.0"
+pylsp-mypy = "^0.7.0"
 
 [build-system]
 requires = ["poetry-core"]
