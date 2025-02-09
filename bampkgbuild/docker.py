@@ -8,18 +8,20 @@ from typing import List, Optional, Iterator, Any, Tuple
 logger = logging.getLogger(__name__)
 
 
-class docker_container():
+class docker_container:
     def __init__(self, container: str, gpg: bool) -> None:
         self.container = container
         self.gpg = gpg
 
-    def _get_params(self, cmd: List[str], user: Optional[str], cwd: Optional[str]) -> List[str]:
+    def _get_params(
+        self, cmd: List[str], user: Optional[str], cwd: Optional[str]
+    ) -> List[str]:
         env = {}
         params = [
-                "podman",
-                "exec",
-                "-ti",
-            ]
+            "podman",
+            "exec",
+            "-ti",
+        ]
 
         if user is not None:
             params.extend(["--user", user])
@@ -41,45 +43,51 @@ class docker_container():
         params.extend(cmd)
         return params
 
-    def check_call(self, cmd: List[str], user: Optional[str]=None, root: bool=False, cwd:  Optional[str]=None) -> int:
+    def check_call(
+        self,
+        cmd: List[str],
+        user: Optional[str] = None,
+        root: bool = False,
+        cwd: Optional[str] = None,
+    ) -> int:
         if root:
             user = "root"
         params = self._get_params(cmd, user, cwd)
         return check_call(params)
 
-    def check_output(self, cmd: List[str], user: Optional[str]=None, root=False, cwd=None) -> bytes:
+    def check_output(
+        self, cmd: List[str], user: Optional[str] = None, root=False, cwd=None
+    ) -> bytes:
         if root:
             user = "root"
         params = self._get_params(cmd, user, cwd)
         return check_output(params)
 
     @contextmanager
-    def create_file(self, whence: str, user: Optional[str]=None) -> Iterator[Any]:
+    def create_file(self, whence: str, user: Optional[str] = None) -> Iterator[Any]:
         with NamedTemporaryFile() as tmp_file:
             yield tmp_file
             tmp_file.flush()
             check_call(
                 [
-                    'docker',
-                    'cp',
+                    "docker",
+                    "cp",
                     tmp_file.name,
                     f"{self.container}:{whence}",
                 ]
             )
 
     def get_files(self, src: str, dst: str) -> None:
-        check_call(
-            [
-                'docker',
-                'cp',
-                f"{self.container}:{src}",
-                dst
-            ]
-        )
+        check_call(["docker", "cp", f"{self.container}:{src}", dst])
 
 
-class docker():
-    def __init__(self, chroot_name: str, gpg: bool=False, volume: Optional[Tuple[str,str]]=None) -> None:
+class docker:
+    def __init__(
+        self,
+        chroot_name: str,
+        gpg: bool = False,
+        volume: Optional[Tuple[str, str]] = None,
+    ) -> None:
         self.chroot_name = chroot_name
         self.gpg = gpg
         self.volume = volume
@@ -90,7 +98,8 @@ class docker():
             "create",
             "-t",
             "-i",
-            "-v", "/tmp:/tmp",
+            "-v",
+            "/tmp:/tmp",
         ]
 
         volume = self.volume
@@ -98,7 +107,7 @@ class docker():
             params.extend(["--volume", f"{volume[0]}:{volume[1]}"])
 
         if self.gpg:
-            gpg_dir = os.environ['GNUPGHOME']
+            gpg_dir = os.environ["GNUPGHOME"]
             params.extend(["--volume", f"{gpg_dir}:/gpg"])
 
         params.extend(["--userns", "keep-id"])

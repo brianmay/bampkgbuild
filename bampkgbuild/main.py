@@ -54,7 +54,7 @@ def deb_build_src(src_dir: str, chroot_name: str) -> str:
     parent_dir = os.path.join(src_dir, "..")
     parent_abs = os.path.abspath(parent_dir)
 
-    rm_file_list = [ "debian/files" ]
+    rm_file_list = ["debian/files"]
     for rm_file in rm_file_list:
         path = os.path.join(src_dir, rm_file)
         try:
@@ -76,12 +76,12 @@ def deb_build_src(src_dir: str, chroot_name: str) -> str:
                     "--git-builder=debuild --no-lintian -i -I -S -nc -uc -us",
                     "--no-check-builddeps",
                 ],
-                cwd = os.path.join("/build", src_name),
+                cwd=os.path.join("/build", src_name),
             )
 
     else:
         with docker(chroot_name, volume=(parent_abs, "/build")) as chroot:
-            chroot.check_call(["dpkg-source", "-b", src_name], cwd = parent_abs)
+            chroot.check_call(["dpkg-source", "-b", src_name], cwd=parent_abs)
 
     # remove epoch for filename
     version = re.sub(r"^\d+:", "", str(cl.version), 1)
@@ -110,7 +110,9 @@ def deb_copy_source(tmp_dir: str, dsc_path: str) -> str:
     return dsc_path
 
 
-def deb_update_source(tmp_dir: str, dsc_path: str, distribution: str, add_to_version: str) -> str:
+def deb_update_source(
+    tmp_dir: str, dsc_path: str, distribution: str, add_to_version: str
+) -> str:
     dsc_file = os.path.basename(dsc_path)
     build_dir = os.path.join(tmp_dir, "source")
 
@@ -280,7 +282,9 @@ def deb_lint(changes_file: str, chroot_name: str) -> None:
 #        chroot.check_call(["lintian4py", changes_file])
 
 
-def deb_test(changes_file: str, chroot_name: str, test_mode: str, extra_repo: Optional[str]) -> None:
+def deb_test(
+    changes_file: str, chroot_name: str, test_mode: str, extra_repo: Optional[str]
+) -> None:
     if test_mode == "none":
         return
     elif test_mode == "manual_no_unpack":
@@ -570,6 +574,7 @@ def main() -> None:
                             deb_upload(server, args.delayed, changes_file, build_chroot)
 
     # end if 'debian' in distros:
+
 
 if __name__ == "__main__":
     main()
