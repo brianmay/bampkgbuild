@@ -1,13 +1,8 @@
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
 [project]
 name = "bampkgbuild"
 version = "0.0.1"
 description = "Build Debian packages in containers"
-authors = [ {name="Brian May", email="<brian@linuxpenguins.xyz>"}, ]
-license = "GPL3+"
+authors = [ {name="Brian May", email="brian@linuxpenguins.xyz"}, ]
 readme = "README.rst"
 dependencies = [
     "colorlog == 6.9.0",
