@@ -12,7 +12,7 @@ requires-python = ">=3.9"
 [project.scripts]
 bampkgbuild = "bampkgbuild.main:main"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "python-lsp-server == 1.12.2",
     "python-lsp-ruff == 2.2.2",

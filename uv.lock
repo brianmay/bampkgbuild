@@ -19,7 +19,7 @@ dependencies = [
     { name = "python-debian" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "pylsp-mypy" },
     { name = "python-lsp-black" },
@@ -30,11 +30,15 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "colorlog", specifier = "==6.9.0" },
-    { name = "pylsp-mypy", marker = "extra == 'dev'", specifier = "==0.7.0" },
     { name = "python-debian", specifier = "==0.1.49" },
-    { name = "python-lsp-black", marker = "extra == 'dev'", specifier = "==2.0.0" },
-    { name = "python-lsp-ruff", marker = "extra == 'dev'", specifier = "==2.2.2" },
-    { name = "python-lsp-server", marker = "extra == 'dev'", specifier = "==1.12.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pylsp-mypy", specifier = "==0.7.0" },
+    { name = "python-lsp-black", specifier = "==2.0.0" },
+    { name = "python-lsp-ruff", specifier = "==2.2.2" },
+    { name = "python-lsp-server", specifier = "==1.12.2" },
 ]
 
 [[package]]
