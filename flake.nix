@@ -93,10 +93,16 @@
               ]
             );
 
+        inherit (pkgs.callPackages pyproject-nix.build.util { }) mkApplication;
+        package = mkApplication {
+          venv = pythonSet.mkVirtualEnv "bampkgbuild" workspace.deps.default;
+          package = pythonSet.bampkgbuild;
+        };
+
       in
       {
         packages = {
-          bampkgbuild = pythonSet.mkVirtualEnv "bampkgbuild" workspace.deps.default;
+          bampkgbuild = package;
           default = self.packages.${system}.bampkgbuild;
         };
 
