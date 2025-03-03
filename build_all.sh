@@ -25,18 +25,7 @@ for d in sid; do
     build "docker.io/debian:$d" "brianmay/debian-source:$d" "$d" "linux/amd64" "none"
 done
 
-for d in bullseye; do
-    build "i386/debian:$d" "brianmay/debian-i386:$d" "$d" "linux/i386" "bullseye"
-    build "i386/debian:$d" "brianmay/debian-i386:$d-security" "$d" "linux/i386" "bullseye"
-
-    build "debian:$d" "brianmay/debian-amd64:$d" "$d" "linux/amd64" "bullseye"
-    build "debian:$d" "brianmay/debian-amd64:$d-security" "$d" "linux/amd64" "bullseye"
-
-    build "debian:$d" "brianmay/debian-source:$d" "$d" "linux/amd64" "bullseye"
-    build "debian:$d" "brianmay/debian-source:$d-security" "$d" "linux/amd64" "bullseye"
-done
-
-for d in bookworm; do
+for d in bookworm trixie; do
     build "i386/debian:$d" "brianmay/debian-i386:$d" "$d" "linux/i386" "bullseye"
     build "i386/debian:$d" "brianmay/debian-i386:$d-security" "$d" "linux/i386" "bullseye"
 

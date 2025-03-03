@@ -339,7 +339,7 @@ def deb_test_source_only(changes_file: str, test_mode: str) -> None:
         raise RuntimeError("Unknown test mode %s" % test_mode)
 
 
-def deb_upload(server: str, delayed: int, changes_file: str, chroot_name: str) -> None:
+def deb_upload(server: str, delayed: int, changes_file: str, chroot_name: str, real_distribution: str, upload_distribution: str) -> None:
     with open(changes_file) as f:
         changes = deb822.Changes(f)
 
@@ -360,7 +360,9 @@ def deb_upload(server: str, delayed: int, changes_file: str, chroot_name: str) -
     assert top_match is not None
     distributions = top_match.group(3).lstrip()
 
-    assert distributions == changes["Distribution"]
+    print(distributions, changes["Distribution"])
+    assert distributions == real_distribution
+    assert changes["Distribution"] == upload_distribution
     assert distributions != "UNRELEASED"
 
     with docker(chroot_name) as chroot:
@@ -417,10 +419,10 @@ def main() -> None:
     parser.add_argument(
         "--distributions",
         choices=[
-            "bullseye",
-            "bullseye-security",
             "bookworm",
             "bookworm-security",
+            "trixie",
+            "trixie-security",
             "sid",
             "oldstable",
             "stable",
@@ -515,11 +517,11 @@ def main() -> None:
                 upload_distribution = "unstable"
 
             if distribution == "oldstable":
-                real_distribution = "bullseye"
+                real_distribution = "bookworm"
                 upload_distribution = "oldstable"
 
             if distribution == "stable":
-                real_distribution = "bookworm"
+                real_distribution = "trixie"
                 upload_distribution = "stable"
 
             split = distribution.split("-")
@@ -549,7 +551,7 @@ def main() -> None:
                             deb_lint(changes_file, test_chroot)
                         deb_test(changes_file, test_chroot, args.test, None)
                         if not source_upload and args.upload and source:
-                            deb_upload(server, args.delayed, changes_file, build_chroot)
+                            deb_upload(server, args.delayed, changes_file, build_chroot, real_distribution, upload_distribution)
                     arch_all = False
                     source = False
 
@@ -571,7 +573,7 @@ def main() -> None:
                         deb_sign(changes_file, build_chroot)
                         deb_test_source_only(changes_file, args.test)
                         if args.upload:
-                            deb_upload(server, args.delayed, changes_file, build_chroot)
+                            deb_upload(server, args.delayed, changes_file, build_chroot, real_distribution, upload_distribution)
 
     # end if 'debian' in distros:
 
