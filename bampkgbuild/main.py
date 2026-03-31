@@ -360,7 +360,6 @@ def deb_upload(server: str, delayed: int, changes_file: str, chroot_name: str, r
     assert top_match is not None
     distributions = top_match.group(3).lstrip()
 
-    print(distributions, changes["Distribution"])
     assert distributions == real_distribution
     assert changes["Distribution"] == upload_distribution
     assert distributions != "UNRELEASED"
